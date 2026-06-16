@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* VXI Theme Custom Styles */
+@layer base {
+    body {
+        @apply bg-slate-900 text-gray-100;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+        @apply w-2 h-2;
+    }
+
+    ::-webkit-scrollbar-track {
+        @apply bg-slate-800;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        @apply bg-slate-600 rounded-full;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-slate-500;
+    }
+}
+
+@layer components {
+    /* VXI Command Center Cards */
+    .vxi-card {
+        @apply bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg border border-slate-600 shadow-lg hover:shadow-xl transition;
+    }
+
+    .vxi-card-highlight {
+        @apply bg-gradient-to-br from-cyan-900/20 to-slate-800 rounded-lg border border-cyan-600/50 shadow-lg hover:shadow-xl hover:border-cyan-500 transition;
+    }
+
+    /* VXI Buttons */
+    .vxi-btn {
+        @apply px-4 py-2 rounded-lg font-medium transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900;
+    }
+
+    .vxi-btn-primary {
+        @apply vxi-btn bg-cyan-600 text-white hover:bg-cyan-500 focus:ring-cyan-400;
+    }
+
+    .vxi-btn-secondary {
+        @apply vxi-btn bg-slate-700 text-slate-100 hover:bg-slate-600 focus:ring-slate-400;
+    }
+
+    .vxi-btn-danger {
+        @apply vxi-btn bg-red-600 text-white hover:bg-red-500 focus:ring-red-400;
+    }
+
+    /* VXI Inputs */
+    .vxi-input {
+        @apply px-4 py-2 bg-slate-700 border border-slate-600 text-gray-100 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition;
+    }
+
+    .vxi-input::placeholder {
+        @apply text-slate-500;
+    }
+
+    /* VXI Badge */
+    .vxi-badge {
+        @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+    }
+
+    .vxi-badge-success {
+        @apply vxi-badge bg-green-900/30 text-green-400 border border-green-600/50;
+    }
+
+    .vxi-badge-warning {
+        @apply vxi-badge bg-yellow-900/30 text-yellow-400 border border-yellow-600/50;
+    }
+
+    .vxi-badge-danger {
+        @apply vxi-badge bg-red-900/30 text-red-400 border border-red-600/50;
+    }
+
+    .vxi-badge-info {
+        @apply vxi-badge bg-cyan-900/30 text-cyan-400 border border-cyan-600/50;
+    }
+
+    /* Animations */
+    .animate-pulse-slow {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .animate-glow {
+        animation: glow 2s ease-in-out infinite;
+    }
+
+    @keyframes glow {
+        0%, 100% {
+            box-shadow: 0 0 5px rgba(34, 211, 238, 0.5);
+        }
+        50% {
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.8);
+        }
+    }
+
+    /* Status Indicators */
+    .status-active::before {
+        @apply w-3 h-3 bg-green-500 rounded-full inline-block mr-2 animate-pulse;
+    }
+
+    .status-offline::before {
+        @apply w-3 h-3 bg-red-500 rounded-full inline-block mr-2 animate-pulse;
+    }
+
+    .status-empty::before {
+        @apply w-3 h-3 bg-gray-500 rounded-full inline-block mr-2;
+    }
+}
+
+@layer utilities {
+    /* Gradient text */
+    .text-gradient {
+        @apply bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent;
+    }
+
+    /* Glass morphism effect */
+    .glass {
+        @apply backdrop-blur-md bg-white/10 border border-white/20;
+    }
+
+    /* Flex center */
+    .flex-center {
+        @apply flex items-center justify-center;
+    }
+}
