@@ -1,500 +1,779 @@
-<x-app-layout>
-<div class="h-screen bg-slate-800 text-white overflow-hidden flex flex-col">
-    <!-- Header -->
-    <div class="bg-slate-900 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
-        <div class="flex items-center gap-4">
-            <h1 class="text-2xl font-bold text-cyan-400">VXI FloorSight</h1>
-            <div class="text-sm text-slate-400">
-                Floor <span class="font-mono text-cyan-300">{{ $currentFloor->floor_number }}</span> | 
-                {{ $currentFloor->floor_name ?? "Floor {$currentFloor->floor_number}" }}
+﻿<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-[#050B14] text-slate-100">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>{{ config('app.name', 'VXI FloorSight - Dashboard Map Editor') }}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        vxi: {
+                            red: '#E31B23',
+                            'red-light': '#FF2E37',
+                            'red-dark': '#B61219',
+                            navy: '#001C3D',
+                            'navy-light': '#002D62',
+                            'navy-dark': '#001024',
+                            midnight: '#050B14',
+                            slate: '#0F1E33',
+                            cyan: '#22d3ee',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        /* Scanline Overlay matching Landing & Login */
+        .dashboard-scanlines {
+            background: linear-gradient(
+                rgba(18, 30, 49, 0) 50%, 
+                rgba(0, 0, 0, 0.15) 50%
+            ), linear-gradient(
+                90deg, 
+                rgba(227, 27, 35, 0.02), 
+                rgba(34, 211, 238, 0.01), 
+                rgba(0, 0, 255, 0.02)
+            );
+            background-size: 100% 4px, 6px 100%;
+        }
+
+        /* SVG Node Drag Cursor & hover aesthetics */
+        .movable-station {
+            cursor: move;
+            transition: transform 0.1s ease, filter 0.15s ease;
+        }
+        .movable-station:hover {
+            filter: brightness(1.25);
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="antialiased h-full flex flex-col justify-between bg-[#050B14] select-none" x-data="dashboardController()">
+
+    <header class="bg-vxi-navy-dark border-b border-vxi-navy/30 px-6 py-4 flex justify-between items-center shrink-0 shadow-lg relative z-20">
+        <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-vxi-red text-white font-black text-xl tracking-tighter shadow-lg shadow-vxi-red/20">
+                VXI
+            </div>
+            <div>
+                <h1 class="text-sm font-extrabold text-white tracking-wider flex items-center">
+                    FloorSight Terminal Map <span class="ml-2 text-[9px] px-2 py-0.5 rounded-full bg-vxi-red/15 text-vxi-red border border-vxi-red/30 uppercase tracking-widest font-black text-center">Structure Editor</span>
+                </h1>
+                <p class="text-[10px] text-slate-400 font-mono">DAVAO CENTRALE HUBS • LOCAL GEOMETRICS</p>
             </div>
         </div>
 
         <div class="flex items-center gap-4">
-            <div class="text-sm text-slate-400">
-                Welcome, <span class="text-cyan-300">{{ auth()->user()->name }}</span>
-                <span class="text-xs text-slate-500">({{ auth()->user()->roles->first()?->display_name ?? 'User' }})</span>
-            </div>
-            <form method="POST" action="{{ route('logout') }}" style="display: inline;">
-                @csrf
-                <button type="submit" class="text-sm text-red-400 hover:text-red-300 transition">Logout</button>
-            </form>
+            <span class="text-xs text-slate-400 font-mono">WORKSPACE: <span class="text-vxi-cyan font-bold" x-text="selectedFloorName"></span></span>
+            <div class="h-6 w-px bg-vxi-navy/30"></div>
+            <a href="/" class="text-xs font-bold text-slate-400 hover:text-white transition">Back to Main HUD</a>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Content Area -->
-    <div class="flex flex-1 overflow-hidden">
-        <!-- Left Panel: Metrics -->
-        <div class="w-80 bg-slate-800 border-r border-slate-700 overflow-y-auto p-6">
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <aside class="w-72 border-r border-vxi-navy/30 bg-vxi-navy-dark/60 p-5 flex flex-col justify-between shrink-0 overflow-y-auto z-10">
             <div class="space-y-6">
-                <!-- Floor Selection -->
-                <div>
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <span class="w-1 h-4 bg-cyan-500 rounded"></span>Select Floor
+                
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center">
+                        <i data-lucide="layers" class="h-4 w-4 mr-1.5 text-vxi-red"></i>
+                        Floor Layouts
                     </h3>
-                    <div class="space-y-2">
-                        @foreach($floors as $floor)
-                            <a href="{{ route('dashboard', ['floor' => $floor->id]) }}"
-                               class="block px-4 py-3 rounded-lg transition font-medium text-sm border {{ $floor->id === $currentFloor->id ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 text-white border-cyan-500 shadow-lg shadow-cyan-500/30' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border-slate-600 hover:border-slate-500' }}">
-                                <div class="flex justify-between items-center">
-                                    <span>Floor {{ $floor->floor_number }}</span>
-                                    <span class="text-xs bg-black/20 px-2 py-1 rounded">{{ $floor->workstations()->count() }} seats</span>
-                                </div>
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
-
-                <!-- Floor Metrics -->
-                <div class="border-t border-slate-700 pt-4">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <span class="w-1 h-4 bg-cyan-500 rounded"></span>Floor Metrics
-                    </h3>
-                    <div class="grid grid-cols-2 gap-3">
-                        <!-- Total Workstations -->
-                        <div class="bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg p-4 border border-slate-600 hover:border-slate-500 transition shadow-lg">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="text-3xl font-bold text-cyan-400">{{ $metrics['total_workstations'] }}</div>
-                                    <div class="text-xs text-slate-400 mt-1">Total Seats</div>
-                                </div>
-                                <div class="text-cyan-400/20 text-4xl">&#128519;</div>
-                            </div>
-                        </div>
-
-                        <!-- Active -->
-                        <div class="bg-gradient-to-br from-green-900/20 to-slate-800 rounded-lg p-4 border border-green-600/50 hover:border-green-500 transition shadow-lg">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="text-3xl font-bold text-green-400">{{ $metrics['active'] }}</div>
-                                    <div class="text-xs text-slate-400 mt-1">Active</div>
-                                </div>
-                                <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                            </div>
-                        </div>
-
-                        <!-- Offline -->
-                        <div class="bg-gradient-to-br from-red-900/20 to-slate-800 rounded-lg p-4 border border-red-600/50 hover:border-red-500 transition shadow-lg">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="text-3xl font-bold text-red-400">{{ $metrics['offline'] }}</div>
-                                    <div class="text-xs text-slate-400 mt-1">Offline</div>
-                                </div>
-                                <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-                            </div>
-                        </div>
-
-                        <!-- Empty -->
-                        <div class="bg-gradient-to-br from-gray-700/20 to-slate-800 rounded-lg p-4 border border-gray-600/50 hover:border-gray-500 transition shadow-lg">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="text-3xl font-bold text-gray-400">{{ $metrics['empty'] }}</div>
-                                    <div class="text-xs text-slate-400 mt-1">Empty</div>
-                                </div>
-                                <div class="text-gray-400/20 text-4xl">-</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Occupancy Percentage -->
-                    <div class="mt-4 bg-gradient-to-r from-slate-700 to-slate-800 rounded-lg p-4 border border-cyan-600/30 hover:border-cyan-500 transition shadow-lg">
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-xs text-slate-400 font-semibold">OCCUPANCY RATE</span>
-                            <span class="text-lg font-bold text-cyan-300">{{ $metrics['occupancy_percentage'] }}%</span>
-                        </div>
-                        <div class="w-full bg-slate-600 rounded-full h-3 overflow-hidden border border-slate-500">
-                            <div class="bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-400 h-3 rounded-full transition-all duration-500 shadow-lg shadow-cyan-500/50"
-                                 style="width: {{ $metrics['occupancy_percentage'] }}%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Search Workstation -->
-                <div class="border-t border-slate-700 pt-4">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <span class="w-1 h-4 bg-cyan-500 rounded"></span>Search Asset
-                    </h3>
-                    <div class="relative">
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </span>
-                            <input type="text"
-                                   id="search-workstation"
-                                   placeholder="Hostname, IP, Agent..."
-                                   class="w-full pl-10 pr-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition"
-                                   autocomplete="off">
-                        </div>
-                        <div id="search-results"
-                             class="absolute top-full left-0 right-0 mt-2 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50 hidden">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent Audit Logs -->
-                @if(auth()->user()->can('view_audit_logs'))
-                    <div class="border-t border-slate-700 pt-4">
-                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <span class="w-1 h-4 bg-cyan-500 rounded"></span>Recent Activity
-                        </h3>
-                        <div class="space-y-2 text-xs max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
-                            @forelse($recentAuditLogs as $log)
-                                <div class="bg-slate-700 rounded-lg px-3 py-2 border-l-3 border-cyan-500 hover:bg-slate-600 transition">
-                                    <div class="text-slate-200 font-medium">{{ $log->action_performed }}</div>
-                                    <div class="text-slate-500 text-xs mt-1 flex justify-between">
-                                        <span>{{ $log->user->name }}</span>
-                                        <span>{{ $log->timestamp->diffForHumans() }}</span>
-                                    </div>
-                                </div>
-                            @empty
-                                <div class="text-slate-500 text-xs text-center py-4">No recent activity</div>
-                            @endforelse
-                        </div>
-                    </div>
-                @endif
-            </div>
-        </div>
-
-        <!-- Center: SVG Floor Map -->
-        <div class="flex-1 bg-slate-800 relative overflow-auto p-6">
-            <div class="h-full w-full bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl border border-slate-700 shadow-2xl p-6 overflow-auto"
-                 id="floor-map-container">
-                <svg id="floor-map" class="w-full h-full" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
-                    <!-- SVG Floor Plan -->
-                    <defs>
-                        <style>
-                            .workstation-seat { cursor: pointer; transition: all 0.3s ease; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5)); }
-                            .workstation-seat:hover { filter: brightness(1.4) drop-shadow(0 0 8px rgba(34, 197, 94, 0.6)); transform-origin: center; }
-                            .workstation-seat.active { fill: #10b981; }
-                            .workstation-seat.offline { fill: #ef4444; animation: pulse 1.5s infinite; }
-                            .workstation-seat.empty { fill: #6b7280; }
-                            .workstation-seat.selected { filter: drop-shadow(0 0 12px #06b6d4) brightness(1.2); }
-                            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-                        </style>
-                    </defs>
-
-                    <!-- Floor title -->
-                    <text x="600" y="50" text-anchor="middle" class="text-3xl fill-cyan-400 font-bold"
-                          style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: bold; fill: #22d3ee;">
-                        Floor {{ $currentFloor->floor_number }} &#x2503; {{ $currentFloor->floor_name ?? "Floor {$currentFloor->floor_number}" }}
-                    </text>
-
-                    <!-- Bay sections with workstations -->
-                    @php $xOffset = 100; $yOffset = 120; @endphp
-                    @foreach($bays as $bayIndex => $bay)
-                        @php
-                            $bayX = $xOffset + ($bayIndex % 2) * 550;
-                            $bayY = $yOffset + intdiv($bayIndex, 2) * 320;
-                        @endphp
-
-                        <!-- Bay Background -->
-                        <rect x="{{ $bayX - 20 }}" y="{{ $bayY - 40 }}"
-                              width="480" height="280"
-                              fill="rgba(51, 65, 85, 0.3)"
-                              stroke="#475569"
-                              stroke-width="1"
-                              rx="8"/>
-
-                        <!-- Bay Label -->
-                        <text x="{{ $bayX }}" y="{{ $bayY - 20 }}"
-                              style="font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; fill: #a1f0ff;"
-                              class="text-lg fill-cyan-300 font-semibold">
-                            Bay {{ $bay->bay_letter }}
-                        </text>
-                        <text x="{{ $bayX }}" y="{{ $bayY + 2 }}"
-                              style="font-family: Arial, sans-serif; font-size: 12px; fill: #cbd5e1;"
-                              class="text-xs fill-slate-300">
-                            {{ $bay->client_campaign_name }}
-                        </text>
-
-                        <!-- Workstations Grid -->
-                        @php $wsIndex = 0; @endphp
-                        @foreach($bay->workstations as $workstation)
-                            @php
-                                $col = $wsIndex % 5;
-                                $row = intdiv($wsIndex, 5);
-                                $x = $bayX + 50 + ($col * 85);
-                                $y = $bayY + 40 + ($row * 85);
-                                $wsIndex++;
-                            @endphp
-
-                            <circle
-                                id="{{ $workstation->getSvgElementId() }}"
-                                cx="{{ $x }}"
-                                cy="{{ $y }}"
-                                r="32"
-                                class="workstation-seat {{ $workstation->status }}"
-                                data-workstation-id="{{ $workstation->id }}"
-                                data-hostname="{{ $workstation->hostname }}"
-                                data-status="{{ $workstation->status }}"
-                            />
-                            <text x="{{ $x }}" y="{{ $y + 5 }}"
-                                  text-anchor="middle"
-                                  style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; fill: white; pointer-events: none;"
-                                  class="text-xs fill-white font-semibold pointer-events-none">
-                                {{ $workstation->station_id }}
-                            </text>
-                        @endforeach
-                    @endforeach
-                </svg>
-            </div>
-        </div>
-
-        <!-- Right Panel: Asset Details (Slide-out) -->
-        <div id="asset-sidebar"
-             class="w-0 bg-slate-800 border-l border-slate-700 overflow-y-auto transition-all duration-300"
-             style="width: 0px;">
-            <div class="p-6 space-y-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-bold text-cyan-400">Asset Details</h3>
-                    <button id="close-sidebar"
-                            class="text-slate-400 hover:text-slate-200 transition">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                    <button @click="openCreateFloorModal()" class="text-[9px] font-black text-vxi-cyan hover:text-cyan-300 flex items-center uppercase tracking-wider">
+                        <i data-lucide="plus" class="h-3 w-3 mr-0.5"></i> Add Floor
                     </button>
                 </div>
 
-                <div id="asset-details-content" class="space-y-4">
-                    <!-- Will be populated by JavaScript -->
+                <div class="space-y-2">
+                    <template x-for="floor in floors" :key="floor.id">
+                        <div 
+                            :class="selectedFloorId === floor.id ? 'bg-vxi-red/10 border-vxi-red/40' : 'bg-slate-950/40 border-vxi-navy/20 hover:border-vxi-navy/40'"
+                            class="group p-3 rounded-xl border flex items-center justify-between transition duration-150 cursor-pointer"
+                            @click="selectFloor(floor)"
+                        >
+                            <div class="flex-1">
+                                <h4 class="text-xs font-extrabold text-white" x-text="floor.name"></h4>
+                                <p class="text-[9px] font-mono text-slate-500 uppercase mt-0.5" x-text="': ' + floor.campaign"></p>
+                            </div>
+                            <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition duration-150">
+                                <button @click.stop="openEditFloorModal(floor)" class="text-slate-400 hover:text-white p-0.5">
+                                    <i data-lucide="edit-3" class="h-3 w-3"></i>
+                                </button>
+                                <button @click.stop="confirmDeleteFloor(floor)" class="text-slate-500 hover:text-vxi-red p-0.5">
+                                    <i data-lucide="trash-2" class="h-3 w-3"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
-                <!-- Action Buttons -->
-                <div id="asset-actions" class="border-t border-slate-700 pt-4 space-y-2">
-                    <!-- Will be populated based on user permissions -->
+                <div class="pt-4 border-t border-vxi-navy/20 space-y-3">
+                    <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Operational Station Types</h4>
+                    
+                    <div class="space-y-2 text-xs">
+                        <div class="flex items-center gap-2 p-2 bg-slate-950/50 rounded-lg border border-vxi-navy/25">
+                            <span class="h-3 w-3 rounded bg-emerald-500 border border-emerald-400"></span>
+                            <div>
+                                <p class="font-extrabold text-white">Agent Station</p>
+                                <p class="text-[9px] text-slate-500">Regular BPO workspace</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 p-2 bg-slate-950/50 rounded-lg border border-vxi-navy/25">
+                            <span class="h-3 w-3 rounded bg-vxi-cyan border border-cyan-400"></span>
+                            <div>
+                                <p class="font-extrabold text-white">Support Station</p>
+                                <p class="text-[9px] text-slate-500">SME / QA / Real-Time Support</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 p-2 bg-slate-950/50 rounded-lg border border-vxi-navy/25">
+                            <span class="h-3 w-3 rounded bg-vxi-red border border-vxi-red-light animate-pulse"></span>
+                            <div>
+                                <p class="font-extrabold text-white">OM Station</p>
+                                <p class="text-[9px] text-slate-500">Operations Manager Desk</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="border-t border-vxi-navy/20 pt-4">
+                <div class="bg-slate-950/70 p-3 rounded-xl border border-vxi-navy/35 text-[9px] text-slate-500 space-y-1 font-mono">
+                    <div class="flex justify-between">
+                        <span>Map Grid Area:</span>
+                        <span class="text-white font-bold">1000 x 500 px</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Topology Logic:</span>
+                        <span class="text-vxi-cyan">Interactive Drag</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-6 flex flex-col justify-between overflow-y-auto dashboard-scanlines relative z-0">
+            
+            <div class="space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 class="text-lg font-black text-white flex items-center tracking-wide uppercase">
+                            <i data-lucide="map" class="h-5 w-5 mr-2 text-vxi-red"></i>
+                            Centrale Site Map Editor
+                        </h2>
+                        <p class="text-xs text-slate-400">
+                            Line of Business Group: <span class="text-vxi-cyan font-bold" x-text="getCampaignName()"></span>
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <div class="relative w-full sm:w-48">
+                            <input 
+                                type="text" 
+                                placeholder="Search Workstations..." 
+                                x-model="searchQuery" 
+                                class="w-full px-3 py-1.5 bg-slate-950 border border-vxi-navy/30 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-vxi-red transition font-mono"
+                            >
+                        </div>
+                        <button @click="openCreateAssetModal()" class="px-3.5 py-1.5 bg-vxi-red hover:bg-vxi-red-dark text-white text-xs font-black uppercase tracking-wider rounded-lg flex items-center gap-1.5 transition shrink-0 shadow-lg shadow-vxi-red/20">
+                            <i data-lucide="plus" class="h-3.5 w-3.5"></i> Add Station
+                        </button>
+                    </div>
+                </div>
+
+                <div class="relative bg-slate-950 border border-vxi-navy/30 rounded-2xl p-4 shadow-2xl overflow-hidden flex flex-col items-center justify-center">
+                    
+                    <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,28,61,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,28,61,0.12)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
+
+                    <svg viewBox="0 0 1000 500" class="w-full h-auto max-w-[1000px] aspect-[2/1] relative z-10">
+                        
+                        <rect x="50" y="220" width="900" height="50" fill="#001c3d" fill-opacity="0.08" stroke="#001c3d" stroke-opacity="0.12" stroke-dasharray="4,4" />
+                        <rect x="480" y="20" width="40" height="460" fill="#001c3d" fill-opacity="0.08" stroke="#001c3d" stroke-opacity="0.12" stroke-dasharray="4,4" />
+
+                        <rect x="20" y="20" width="180" height="130" fill="#001024" fill-opacity="0.75" stroke="#001c3d" stroke-width="1.5" />
+                        <text x="110" y="85" fill="#94a3b8" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" opacity="0.6">TRAINING SUITE</text>
+
+                        <rect x="800" y="20" width="180" height="130" fill="#001024" fill-opacity="0.75" stroke="#001c3d" stroke-width="1.5" />
+                        <text x="890" y="85" fill="#22d3ee" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" opacity="0.6">IDF SERVER ROOM</text>
+
+                        <rect x="320" y="20" width="180" height="130" fill="#001024" fill-opacity="0.75" stroke="#001c3d" stroke-width="1.5" />
+                        <text x="410" y="85" fill="#94a3b8" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" opacity="0.6">HR SOURCING HUB</text>
+
+                        <rect x="250" y="140" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
+                        <rect x="730" y="140" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
+                        <rect x="250" y="330" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
+                        <rect x="730" y="330" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
+
+                        <template x-for="asset in filteredAssets" :key="asset.id">
+                            <g 
+                                class="movable-station" 
+                                @click="selectAsset(asset)"
+                            >
+                                <rect 
+                                    :x="asset.x" 
+                                    :y="asset.y" 
+                                    width="46" 
+                                    height="34" 
+                                    rx="5" 
+                                    :fill="selectedAsset?.id === asset.id ? '#E31B23' : '#001024'" 
+                                    :fill-opacity="selectedAsset?.id === asset.id ? '0.2' : '0.9'"
+                                    :stroke="selectedAsset?.id === asset.id ? '#FF2E37' : (asset.type === 'agent' ? '#10b981' : (asset.type === 'support' ? '#22d3ee' : '#E31B23'))" 
+                                    stroke-width="2"
+                                />
+
+                                <circle 
+                                    :cx="asset.x + 9" 
+                                    :cy="asset.y + 10" 
+                                    r="4" 
+                                    :fill="asset.type === 'agent' ? '#10b981' : (asset.type === 'support' ? '#22d3ee' : '#E31B23')"
+                                />
+
+                                <text 
+                                    :x="asset.x + 23" 
+                                    :y="asset.y + 26" 
+                                    fill="#f1f5f9" 
+                                    font-size="9" 
+                                    font-family="monospace" 
+                                    font-weight="black"
+                                    text-anchor="middle"
+                                    x-text="asset.name"
+                                ></text>
+                            </g>
+                        </template>
+
+                    </svg>
+
+                    <div class="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[9px] font-mono bg-slate-950/80 px-4 py-2 border border-vxi-navy/35 rounded-xl">
+                        <span class="text-slate-400">💡 TIP: CLICK ANY STATION ON MAP THEN ADJUST COORDINATES TO ALTER MAP GEOMETRICS</span>
+                        <span class="text-vxi-cyan">ACTIVE COORDINATE LAYER</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="mt-6 p-4 rounded-xl border border-vxi-navy/20 bg-vxi-navy/10 flex items-center justify-between text-xs text-slate-400 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Geometric Layout Engine is active. Adjust workstation X & Y coordinates inside details deck to move.</span>
+                </div>
+                <span class="font-mono text-[9px]">VXI Sentinel v2.7</span>
+            </div>
+
+        </main>
+
+        <aside class="w-80 border-l border-vxi-navy/30 bg-[#001024]/60 p-5 flex flex-col justify-between shrink-0 overflow-y-auto z-10">
+            
+            <div x-show="!selectedAsset" class="flex flex-col items-center justify-center text-center h-full text-slate-500">
+                <i data-lucide="info" class="h-10 w-10 text-slate-700 mb-2"></i>
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Asset Inspector</h4>
+                <p class="text-[10px] max-w-[180px] mt-1">Select any workstation on the map canvas blueprint to inspect properties and customize coordinates.</p>
+            </div>
+
+            <div x-show="selectedAsset" x-cloak class="space-y-6">
+                
+                <div class="flex items-center justify-between border-b border-vxi-navy/20 pb-3">
+                    <div>
+                        <span class="text-[8px] font-black px-2 py-0.5 rounded border uppercase tracking-widest"
+                              :class="selectedAsset?.type === 'agent' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : (selectedAsset?.type === 'support' ? 'bg-cyan-500/10 border-cyan-500/20 text-vxi-cyan' : 'bg-vxi-red/10 border-vxi-red/20 text-vxi-red')"
+                              x-text="selectedAsset?.type + ' Station'"></span>
+                        <h3 class="text-xl font-extrabold text-white mt-1" x-text="'Workspace ' + selectedAsset?.name"></h3>
+                    </div>
+                    <button @click="selectedAsset = null" class="text-slate-500 hover:text-slate-300">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-2 text-[11px] font-mono bg-slate-950/60 p-4 rounded-xl border border-vxi-navy/25">
+                    <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5">
+                        <span class="text-slate-500">Hostname:</span>
+                        <span class="text-white font-bold" x-text="selectedAsset?.hostname"></span>
+                    </div>
+                    <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5">
+                        <span class="text-slate-500">IP Segment:</span>
+                        <span class="text-vxi-cyan" x-text="selectedAsset?.ip"></span>
+                    </div>
+                    <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5">
+                        <span class="text-slate-500">MAC Addr:</span>
+                        <span class="text-slate-400 text-[10px]" x-text="selectedAsset?.mac"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Seat Category:</span>
+                        <span class="text-white font-bold capitalize" x-text="selectedAsset?.type"></span>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider">Coordinates (Drag Simulation)</h4>
+                    
+                    <div class="grid grid-cols-2 gap-3 text-[11px] font-mono">
+                        <div>
+                            <span class="text-slate-500">Axis X (horizontal):</span>
+                            <input 
+                                type="number" 
+                                x-model.number="selectedAsset.x" 
+                                @input="clampCoordinates(selectedAsset)"
+                                class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center"
+                            >
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Axis Y (vertical):</span>
+                            <input 
+                                type="number" 
+                                x-model.number="selectedAsset.y" 
+                                @input="clampCoordinates(selectedAsset)"
+                                class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/40 p-3 rounded-xl border border-vxi-navy/20 space-y-2">
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider block text-center">Numpad Fine-Tuning</span>
+                        
+                        <div class="flex justify-center">
+                            <button @click="moveSelectedAsset(0, -10)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded">
+                                <i data-lucide="chevron-up" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+                        <div class="flex justify-center gap-4">
+                            <button @click="moveSelectedAsset(-10, 0)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded">
+                                <i data-lucide="chevron-left" class="h-4 w-4"></i>
+                            </button>
+                            <button @click="moveSelectedAsset(10, 0)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded">
+                                <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+                        <div class="flex justify-center">
+                            <button @click="moveSelectedAsset(0, 10)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded">
+                                <i data-lucide="chevron-down" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-4 border-t border-vxi-navy/20">
+                    <button @click="openEditAssetModal(selectedAsset)" class="w-full py-2.5 bg-slate-900 border border-vxi-navy/30 hover:border-vxi-navy/60 text-slate-200 text-xs font-bold rounded-lg transition">
+                        Edit Station Properties
+                    </button>
+                    <button @click="confirmDeleteAsset(selectedAsset)" class="w-full py-2.5 bg-vxi-red/10 hover:bg-vxi-red/20 border border-vxi-red/30 text-vxi-red text-xs font-bold rounded-lg transition">
+                        Delete Workstation
+                    </button>
+                </div>
+
+            </div>
+
+        </aside>
+
+    </div>
+
+    <div x-show="createFloorModal" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#001024] border border-vxi-navy/30 rounded-xl p-6 w-full max-w-md shadow-2xl relative" style="background-color: #07111e !important;">
+            <h3 class="text-sm font-extrabold text-white mb-4 uppercase tracking-wider">Create Floor Layout</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Floor Name</label>
+                    <input type="text" x-model="newFloor.name" placeholder="e.g. Floor 6 - Comcast Voice" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Target Campaign</label>
+                    <input type="text" x-model="newFloor.campaign" placeholder="e.g. Comcast CX" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button @click="createFloorModal = false" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-bold rounded-lg">Cancel</button>
+                    <button @click="saveNewFloor()" class="px-4 py-2 bg-vxi-red hover:bg-vxi-red/90 text-white text-xs font-bold rounded-lg">Save Floor</button>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Scripts -->
-<script>
-    const floorMapSvg = document.getElementById('floor-map');
-    const assetSidebar = document.getElementById('asset-sidebar');
-    const closeSidebarBtn = document.getElementById('close-sidebar');
-    const searchInput = document.getElementById('search-workstation');
-    const searchResults = document.getElementById('search-results');
-
-    // Handle workstation click
-    document.querySelectorAll('.workstation-seat').forEach(seat => {
-        seat.addEventListener('click', function() {
-            const workstationId = this.dataset.workstationId;
-            loadWorkstationDetails(workstationId);
-            openSidebar();
-        });
-    });
-
-    // Close sidebar
-    closeSidebarBtn.addEventListener('click', closeSidebar);
-
-    // Search functionality
-    searchInput.addEventListener('input', debounce(async (e) => {
-        const term = e.target.value.trim();
-
-        if (term.length < 2) {
-            searchResults.classList.add('hidden');
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/search?term=${encodeURIComponent(term)}`);
-            const data = await response.json();
-
-            if (data.results.length === 0) {
-                searchResults.innerHTML = '<div class="p-3 text-slate-400">No results found</div>';
-            } else {
-                searchResults.innerHTML = data.results
-                    .map(result => `
-                        <div class="p-3 hover:bg-slate-600 cursor-pointer border-b border-slate-700 last:border-b-0"
-                             onclick="selectSearchResult(${result.id}, '${result.hostname}')">
-                            <div class="font-semibold text-cyan-300">${result.hostname}</div>
-                            <div class="text-xs text-slate-400">
-                                ${result.agent_name ? result.agent_name + ' • ' : ''}${result.ip_address}
-                            </div>
-                            <div class="text-xs text-slate-500">
-                                Floor ${result.floor_number} • Bay ${result.bay_letter}
-                            </div>
-                        </div>
-                    `).join('');
-            }
-
-            searchResults.classList.remove('hidden');
-        } catch (error) {
-            console.error('Search error:', error);
-        }
-    }, 300));
-
-    // Select search result
-    async function selectSearchResult(workstationId, hostname) {
-        searchInput.value = hostname;
-        searchResults.classList.add('hidden');
-        await loadWorkstationDetails(workstationId);
-        openSidebar();
-    }
-
-    // Load workstation details
-    async function loadWorkstationDetails(workstationId) {
-        try {
-            const response = await fetch(`/api/workstations/${workstationId}`);
-            const data = await response.json();
-
-            // Highlight the selected workstation on the map
-            document.querySelectorAll('.workstation-seat').forEach(seat => {
-                seat.classList.remove('selected');
-            });
-            const selectedSeat = document.getElementById(data.svg_element_id);
-            if (selectedSeat) {
-                selectedSeat.classList.add('selected');
-                selectedSeat.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-
-            // Populate sidebar
-            const detailsContent = document.getElementById('asset-details-content');
-            detailsContent.innerHTML = `
-                <div class="space-y-3">
-                    <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                        <div class="text-xs text-slate-400">Hostname</div>
-                        <div class="font-mono text-cyan-300">${data.hostname}</div>
-                    </div>
-
-                    <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                        <div class="text-xs text-slate-400">Station ID</div>
-                        <div class="font-mono text-cyan-300">${data.station_id}</div>
-                    </div>
-
-                    <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                        <div class="text-xs text-slate-400">IP Address</div>
-                        <div class="font-mono text-cyan-300">${data.ip_address}</div>
-                    </div>
-
-                    <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                        <div class="text-xs text-slate-400">MAC Address</div>
-                        <div class="font-mono text-slate-300">${data.mac_address || 'N/A'}</div>
-                    </div>
-
-                    <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                        <div class="text-xs text-slate-400">Status</div>
-                        <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full ${data.status === 'active' ? 'bg-green-500' : data.status === 'offline' ? 'bg-red-500 animate-pulse' : 'bg-gray-500'}"></span>
-                            <span class="capitalize">${data.status}</span>
-                        </div>
-                    </div>
-
-                    ${data.agent_name ? `
-                        <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                            <div class="text-xs text-slate-400">Agent Name</div>
-                            <div>${data.agent_name}</div>
-                        </div>
-                    ` : ''}
-
-                    ${data.asset_tag ? `
-                        <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                            <div class="text-xs text-slate-400">Asset Tag</div>
-                            <div class="font-mono">${data.asset_tag}</div>
-                        </div>
-                    ` : ''}
-
-                    <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                        <div class="text-xs text-slate-400">Campaign</div>
-                        <div>${data.bay.client_campaign_name}</div>
-                    </div>
-
-                    ${data.last_ping_at ? `
-                        <div class="bg-slate-700 rounded p-3 border border-slate-600">
-                            <div class="text-xs text-slate-400">Last Ping</div>
-                            <div class="text-sm">${data.last_ping_at}</div>
-                        </div>
-                    ` : ''}
+    <div x-show="editFloorModal" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#001024] border border-vxi-navy/30 rounded-xl p-6 w-full max-w-md shadow-2xl relative" style="background-color: #07111e !important;">
+            <h3 class="text-sm font-extrabold text-white mb-4 uppercase tracking-wider">Update Floor Properties</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Floor Name</label>
+                    <input type="text" x-model="editingFloor.name" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
                 </div>
-            `;
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Target Campaign</label>
+                    <input type="text" x-model="editingFloor.campaign" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button @click="editFloorModal = false" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-bold rounded-lg">Cancel</button>
+                    <button @click="updateFloor()" class="px-4 py-2 bg-vxi-red hover:bg-vxi-red/90 text-white text-xs font-bold rounded-lg">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            // Populate actions
-            const actionsContent = document.getElementById('asset-actions');
-            let actionsHtml = '';
+    <div x-show="createAssetModal" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#001024] border border-vxi-navy/30 rounded-xl p-6 w-full max-w-md shadow-2xl relative" style="background-color: #07111e !important;">
+            <h3 class="text-sm font-extrabold text-white mb-4 uppercase tracking-wider">Install Workstation Station</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Seat Label</label>
+                    <input type="text" x-model="newAsset.name" placeholder="e.g. A5" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Station Type</label>
+                    <select x-model="newAsset.type" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                        <option value="agent">Agent Station</option>
+                        <option value="support">Support Station</option>
+                        <option value="om">OM Station</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis X (20-950px)</label>
+                    <input type="number" x-model.number="newAsset.x" placeholder="230" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis Y (20-460px)</label>
+                    <input type="number" x-model.number="newAsset.y" placeholder="100" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">HostName ID</label>
+                    <input type="text" x-model="newAsset.hostname" placeholder="VXI-DVO-0505" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">IP Address</label>
+                    <input type="text" x-model="newAsset.ip" placeholder="10.100.5.15" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">MAC Address</label>
+                    <input type="text" x-model="newAsset.mac" placeholder="00:E0:4C:68:01:F5" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div class="col-span-2 flex justify-end gap-2 pt-2">
+                    <button @click="createAssetModal = false" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-bold rounded-lg">Cancel</button>
+                    <button @click="saveNewAsset()" class="px-4 py-2 bg-vxi-red hover:bg-vxi-red/90 text-white text-xs font-bold rounded-lg">Deploy Desk</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            if (data.can_remote_session) {
-                actionsHtml += `
-                    <button onclick="launchRemoteSession(${data.id}, '${data.hostname}')"
-                            class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded transition">
-                        Launch RDP
-                    </button>
-                `;
-            }
+    <div x-show="editAssetModal" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#001024] border border-vxi-navy/30 rounded-xl p-6 w-full max-w-md shadow-2xl relative" style="background-color: #07111e !important;">
+            <h3 class="text-sm font-extrabold text-white mb-4 uppercase tracking-wider">Modify Station configuration</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Seat Label</label>
+                    <input type="text" x-model="editingAsset.name" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Station Type</label>
+                    <select x-model="editingAsset.type" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                        <option value="agent">Agent Station</option>
+                        <option value="support">Support Station</option>
+                        <option value="om">OM Station</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis X (pixels)</label>
+                    <input type="number" x-model.number="editingAsset.x" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis Y (pixels)</label>
+                    <input type="number" x-model.number="editingAsset.y" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">HostName ID</label>
+                    <input type="text" x-model="editingAsset.hostname" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">IP Address</label>
+                    <input type="text" x-model="editingAsset.ip" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">MAC Address</label>
+                    <input type="text" x-model="editingAsset.mac" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
+                </div>
+                <div class="col-span-2 flex justify-end gap-2 pt-2">
+                    <button @click="editAssetModal = false" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-bold rounded-lg">Cancel</button>
+                    <button @click="updateAsset()" class="px-4 py-2 bg-vxi-red hover:bg-vxi-red/90 text-white text-xs font-bold rounded-lg">Save Config</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            if (data.can_update) {
-                actionsHtml += `
-                    <button onclick="editWorkstation(${data.id})"
-                            class="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition">
-                        Edit Details
-                    </button>
-                `;
-            }
+    <div x-show="confirmBox.visible" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-[#001024] border border-vxi-navy/30 rounded-xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4" style="background-color: #07111e !important;">
+            <div class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-vxi-red/10 text-vxi-red border border-vxi-red/20">
+                <i data-lucide="alert-triangle" class="h-6 w-6"></i>
+            </div>
+            <h3 class="text-sm font-extrabold text-white uppercase tracking-wider">Confirm Operation</h3>
+            <p class="text-xs text-slate-400 leading-relaxed" x-text="confirmBox.message"></p>
+            <div class="flex justify-center gap-3 pt-2">
+                <button @click="confirmBox.visible = false" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-bold rounded-lg transition">Cancel</button>
+                <button @click="confirmBox.onConfirm()" class="px-4 py-2 bg-vxi-red hover:bg-vxi-red/90 text-white text-xs font-bold rounded-lg transition">Yes, Proceed</button>
+            </div>
+        </div>
+    </div>
 
-            actionsContent.innerHTML = actionsHtml || '<div class="text-slate-400 text-sm">No actions available</div>';
-        } catch (error) {
-            console.error('Error loading workstation details:', error);
-        }
-    }
+    <div x-show="toast.visible" x-cloak x-transition class="fixed bottom-6 right-6 z-50 max-w-sm rounded-xl border border-vxi-navy/40 bg-[#001024] p-4 shadow-2xl flex items-start space-x-3">
+        <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 border border-emerald-500/20">
+            <i data-lucide="check-circle" class="h-5 w-5"></i>
+        </div>
+        <div>
+            <h4 class="text-xs font-extrabold text-white uppercase tracking-wider" x-text="toast.title"></h4>
+            <p class="text-[10px] text-slate-400 mt-1" x-text="toast.message"></p>
+        </div>
+    </div>
 
-    // Launch remote session
-    async function launchRemoteSession(workstationId, hostname) {
-        try {
-            const response = await fetch(`/api/workstations/${workstationId}/remote-session`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Content-Type': 'application/json'
-                }
-            });
-            const data = await response.json();
-            // In a real scenario, this would launch the RDP client
-            // For now, we'll just show a notification
-            alert(`Remote session initiated to ${hostname}`);
-        } catch (error) {
-            console.error('Error launching remote session:', error);
-        }
-    }
+    <footer class="bg-vxi-navy-dark border-t border-vxi-navy/30 py-4 px-6 text-center text-[10px] text-slate-500 shrink-0">
+        <p>© {{ date('Y') }} VXI Global Solutions • Davao Centrale Map Matrix Editor • Davao City, PH</p>
+    </footer>
 
-    // Open sidebar
-    function openSidebar() {
-        assetSidebar.style.width = '400px';
-    }
-
-    // Close sidebar
-    function closeSidebar() {
-        assetSidebar.style.width = '0';
-        document.querySelectorAll('.workstation-seat').forEach(seat => {
-            seat.classList.remove('selected');
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
         });
-    }
 
-    // Debounce function
-    function debounce(func, delay) {
-        let timeoutId;
-        return function(...args) {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => func.apply(this, args), delay);
-        };
-    }
+        function dashboardController() {
+            return {
+                selectedFloorId: 1,
+                selectedFloorName: 'Floor 1 - Recruitment Hub',
+                selectedAsset: null,
+                searchQuery: '',
+                authRole: 'IT Site Operator',
+                siteHealth: 98,
 
-    // Real-time status updates
-    setInterval(async () => {
-        try {
-            const response = await fetch('/api/workstations-statuses');
-            const data = await response.json();
+                // Modal control gates
+                createFloorModal: false,
+                editFloorModal: false,
+                createAssetModal: false,
+                editAssetModal: false,
+                confirmBox: { visible: false, message: '', onConfirm: null },
+                toast: { visible: false, title: '', message: '' },
+                validationErrors: { floor: '', asset: '' },
 
-            data.statuses.forEach(status => {
-                const element = document.getElementById(status.svg_element_id);
-                if (element) {
-                    element.className.baseVal = `workstation-seat ${status.status}`;
+                floors: [
+                    { id: 1, name: 'Floor 1 - Recruitment Hub', campaign: 'Sourcing, SME & Operations Desks' },
+                    { id: 2, name: 'Floor 2 - Support Central', campaign: 'Telecom Customer Operations' },
+                    { id: 3, name: 'Floor 3 - AT&T Solutions', campaign: 'AT&T Billing Suite' },
+                    { id: 4, name: 'Floor 4 - Comcast Core', campaign: 'Comcast Premium CX' }
+                ],
+
+                // Simplified CAD Layout assets categorized into Agent, Support, and OM Station Types
+                assets: [
+                    // Floor 1 Station Profiles
+                    { id: 1, name: 'A1', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0101', ip: '10.100.1.10', mac: '00:E0:4C:68:04:A1', x: 230, y: 30 },
+                    { id: 2, name: 'A2', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0102', ip: '10.100.1.11', mac: '00:E0:4C:68:04:A2', x: 280, y: 30 },
+                    { id: 3, name: 'A3', type: 'support', floor_id: 1, hostname: 'VXI-DVO-0103', ip: '10.100.1.12', mac: '00:E0:4C:68:04:A3', x: 330, y: 30 },
+                    { id: 4, name: 'A4', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0104', ip: '10.100.1.13', mac: '00:E0:4C:68:04:A4', x: 230, y: 80 },
+                    { id: 5, name: 'A5', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0105', ip: '10.100.1.14', mac: '00:E0:4C:68:04:A5', x: 280, y: 80 },
+                    { id: 6, name: 'A6', type: 'om', floor_id: 1, hostname: 'VXI-DVO-0106', ip: '10.100.1.15', mac: '00:E0:4C:68:04:A6', x: 330, y: 80 },
+
+                    { id: 7, name: 'B1', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0110', ip: '10.100.1.20', mac: '00:E0:4C:68:04:B1', x: 550, y: 30 },
+                    { id: 8, name: 'B2', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0111', ip: '10.100.1.21', mac: '00:E0:4C:68:04:B2', x: 600, y: 30 },
+                    { id: 9, name: 'B3', type: 'support', floor_id: 1, hostname: 'VXI-DVO-0112', ip: '10.100.1.22', mac: '00:E0:4C:68:04:B3', x: 650, y: 30 },
+                    { id: 10, name: 'B4', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0113', ip: '10.100.1.23', mac: '00:E0:4C:68:04:B4', x: 550, y: 80 },
+                    { id: 11, name: 'B5', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0114', ip: '10.100.1.24', mac: '00:E0:4C:68:04:B5', x: 600, y: 80 },
+                    { id: 12, name: 'B6', type: 'om', floor_id: 1, hostname: 'VXI-DVO-0115', ip: '10.100.1.25', mac: '00:E0:4C:68:04:B6', x: 650, y: 80 },
+
+                    { id: 13, name: 'C1', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0120', ip: '10.100.1.30', mac: '00:E0:4C:68:04:C1', x: 410, y: 330 },
+                    { id: 14, name: 'C2', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0121', ip: '10.100.1.31', mac: '00:E0:4C:68:04:C2', x: 460, y: 330 },
+                    { id: 15, name: 'C3', type: 'support', floor_id: 1, hostname: 'VXI-DVO-0122', ip: '10.100.1.32', mac: '00:E0:4C:68:04:C3', x: 510, y: 330 },
+                    { id: 16, name: 'C4', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0123', ip: '10.100.1.33', mac: '00:E0:4C:68:04:C3', x: 410, y: 380 },
+                    { id: 17, name: 'C5', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0124', ip: '10.100.1.34', mac: '00:E0:4C:68:04:C4', x: 460, y: 380 },
+                    { id: 18, name: 'C6', type: 'om', floor_id: 1, hostname: 'VXI-DVO-0125', ip: '10.100.1.35', mac: '00:E0:4C:68:04:C5', x: 510, y: 380 }
+                ],
+
+                // CRUD instantiation models
+                newFloor: { name: '', campaign: '' },
+                editingFloor: { id: null, name: '', campaign: '' },
+                newAsset: { name: '', type: 'agent', floor_id: null, hostname: '', ip: '', mac: '', x: 350, y: 150 },
+                editingAsset: { id: null, name: '', type: 'agent', floor_id: null, hostname: '', ip: '', mac: '', x: 350, y: 150 },
+
+                selectFloor(floor) {
+                    this.selectedFloorId = floor.id;
+                    this.selectedFloorName = floor.name;
+                    this.selectedAsset = null;
+                    this.showToast("Telemetry Synced", `Active directory mapped to floor ${floor.id}`);
+                },
+
+                getCampaignName() {
+                    let current = this.floors.find(f => f.id === this.selectedFloorId);
+                    return current ? current.campaign : 'General Services';
+                },
+
+                // 1. UPDATED: Swapped to a Javascript Property Getter
+                get filteredAssets() {
+                    return this.assets.filter(a => 
+                        a.floor_id === Number(this.selectedFloorId) &&
+                        (this.searchQuery === '' || a.hostname.toLowerCase().includes(this.searchQuery.toLowerCase()) || a.name.toLowerCase().includes(this.searchQuery.toLowerCase()))
+                    );
+                },
+
+                selectAsset(asset) {
+                    this.selectedAsset = asset;
+                },
+
+                // Real-time custom position modifier methods for the absolute map geometry
+                moveSelectedAsset(dx, dy) {
+                    if (!this.selectedAsset) return;
+                    this.selectedAsset.x += dx;
+                    this.selectedAsset.y += dy;
+                    this.clampCoordinates(this.selectedAsset);
+                },
+
+                clampCoordinates(asset) {
+                    // Restrict asset coordinate limits so they do not fall out of our 1000x500 blueprint frame boundaries
+                    if (asset.x < 10) asset.x = 10;
+                    if (asset.x > 940) asset.x = 940;
+                    if (asset.y < 10) asset.y = 10;
+                    if (asset.y > 450) asset.y = 450;
+                },
+
+                // --- FLOOR RECORD CONFIGURATIONS ---
+                openCreateFloorModal() {
+                    this.newFloor = { name: '', campaign: '' };
+                    this.createFloorModal = true;
+                },
+
+                saveNewFloor() {
+                    this.validationErrors.floor = '';
+                    
+                    if (!this.newFloor.name || !this.newFloor.campaign) {
+                        this.validationErrors.floor = 'Floor Name and Campaign are required.';
+                        this.showToast('Error', 'Please complete required fields.');
+                        return;
+                    }
+                    
+                    let nextId = this.floors.length > 0 ? Math.max(...this.floors.map(f => f.id)) + 1 : 1;
+                    
+                    // Spread operator fix for Floors
+                    this.floors = [...this.floors, {
+                        id: nextId,
+                        name: this.newFloor.name,
+                        campaign: this.newFloor.campaign
+                    }];
+                    
+                    this.createFloorModal = false;
+                    this.showToast("Floor Installed", `Floor "${this.newFloor.name}" has been mapped.`);
+                },
+
+                openEditFloorModal(floor) {
+                    this.editingFloor = { ...floor };
+                    this.editFloorModal = true;
+                },
+
+                updateFloor() {
+                    // Map operator fix to update arrays
+                    this.floors = this.floors.map(f => f.id === this.editingFloor.id ? { ...this.editingFloor } : f);
+                    if (this.selectedFloorId === this.editingFloor.id) {
+                        this.selectedFloorName = this.editingFloor.name;
+                    }
+                    this.editFloorModal = false;
+                    this.showToast("Floor Saved", "Properties saved successfully.");
+                },
+
+                confirmDeleteFloor(floor) {
+                    this.confirmBox.message = `Decommission entire layout segment: "${floor.name}"? This action will disconnect all local workstations physically mounted on this segment.`;
+                    this.confirmBox.onConfirm = () => {
+                        this.floors = this.floors.filter(f => f.id !== floor.id);
+                        this.assets = this.assets.filter(a => a.floor_id !== floor.id);
+                        if (this.selectedFloorId === floor.id && this.floors.length > 0) {
+                            this.selectFloor(this.floors[0]);
+                        }
+                        this.confirmBox.visible = false;
+                        this.showToast("Layout Purged", "Floor layout removed safely.");
+                    };
+                    this.confirmBox.visible = true;
+                },
+
+                // --- WORKSTATION ASSET CONFIGURATIONS ---
+                openCreateAssetModal() {
+                    this.newAsset = { name: '', type: 'agent', floor_id: this.selectedFloorId, hostname: '', ip: '', mac: '', x: 350, y: 150 };
+                    this.createAssetModal = true;
+                },
+
+                saveNewAsset() {
+                    this.validationErrors.asset = '';
+                    
+                    if (!this.newAsset.name || !this.newAsset.hostname || !this.newAsset.ip) {
+                        this.validationErrors.asset = 'Label, Hostname, and IP address are required.';
+                        this.showToast('Error', 'Please fill out necessary details.');
+                        return;
+                    }
+                    
+                    let nextId = this.assets.length > 0 ? Math.max(...this.assets.map(a => a.id)) + 1 : 1;
+
+                    // 2. UPDATED: Object creation with forced numbering and [...] Spread Operator
+                    const newStation = {
+                        id: nextId,
+                        name: this.newAsset.name,
+                        type: this.newAsset.type,
+                        floor_id: Number(this.selectedFloorId), // <-- Forced to Integer
+                        hostname: this.newAsset.hostname,
+                        ip: this.newAsset.ip,
+                        mac: this.newAsset.mac || '00:E0:4C:68:01:FF',
+                        x: parseInt(this.newAsset.x) || 350,
+                        y: parseInt(this.newAsset.y) || 150
+                    };
+
+                    this.assets = [...this.assets, newStation];
+                    
+                    this.createAssetModal = false;
+                    this.showToast("Station Deployed", `Workstation ${this.newAsset.hostname} is now active on the map.`);
+                },
+
+                openEditAssetModal(asset) {
+                    this.editingAsset = { ...asset };
+                    this.editAssetModal = true;
+                },
+
+                updateAsset() {
+                    // Map operator array reassignment
+                    this.assets = this.assets.map(a => a.id === this.editingAsset.id ? { ...this.editingAsset } : a);
+                    if (this.selectedAsset && this.selectedAsset.id === this.editingAsset.id) {
+                        this.selectedAsset = { ...this.editingAsset };
+                    }
+                    this.editAssetModal = false;
+                    this.showToast("Configuration Saved", "Properties successfully updated.");
+                },
+
+                confirmDeleteAsset(asset) {
+                    this.confirmBox.message = `De-provision workstation node "${asset.hostname}" from local layout mapping?`;
+                    this.confirmBox.onConfirm = () => {
+                        this.assets = this.assets.filter(a => a.id !== asset.id);
+                        this.selectedAsset = null;
+                        this.confirmBox.visible = false;
+                        this.showToast("Asset Purged", "Station removed successfully.");
+                    };
+                    this.confirmBox.visible = true;
+                },
+
+                showToast(title, message) {
+                    this.toast.title = title;
+                    this.toast.message = message;
+                    this.toast.visible = true;
+                    setTimeout(() => {
+                        this.toast.visible = false;
+                    }, 3000);
                 }
-            });
-        } catch (error) {
-            console.error('Error updating statuses:', error);
+            };
         }
-    }, 5000); // Update every 5 seconds
-</script>
-</x-app-layout>
+    </script>
+</body>
+</html>
