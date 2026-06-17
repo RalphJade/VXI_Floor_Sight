@@ -57,6 +57,143 @@ class DashboardController extends Controller
             'metrics' => $metrics,
             'recentAuditLogs' => $recentAuditLogs,
             'user' => $user,
+            'allAssets' => Workstation::with('bay')->get()->map(fn($w) => [
+                'id' => $w->id,
+                'name' => $w->station_id,
+                'type' => $w->type,
+                'floor_id' => $w->bay->floor_id,
+                'hostname' => $w->hostname,
+                'ip' => $w->ip_address,
+                'mac' => $w->mac_address,
+                'x' => $w->x,
+                'y' => $w->y,
+            ]),
+        ]);
+    }
+
+    /**
+     * Store a new floor layout.
+     */
+    public function storeFloor(Request $request): JsonResponse
+    {
+        if (!auth()->user()->isItAdmin()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'campaign' => 'required|string|max:255',
+        ]);
+
+        $nextNumber = Floor::max('floor_number') + 1;
+
+        $floor = Floor::create([
+            'floor_number' => $nextNumber,
+            'floor_name' => $validated['name'],
+            'description' => $validated['campaign'],
+        ]);
+
+        return response()->json([
+            'message' => 'Floor created successfully.',
+            'floor' => [
+                'id' => $floor->id,
+                'name' => $floor->floor_name,
+                'campaign' => $floor->description,
+            ],
+        ]);
+    }
+
+    /**
+     * Update an existing floor.
+     */
+    public function updateFloor(Request $request, Floor $floor): JsonResponse
+    {
+        if (!auth()->user()->isItAdmin()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'campaign' => 'required|string|max:255',
+        ]);
+
+        $floor->update([
+            'floor_name' => $validated['name'],
+            'description' => $validated['campaign'],
+        ]);
+
+        return response()->json([
+            'message' => 'Floor updated successfully.',
+            'floor' => [
+                'id' => $floor->id,
+                'name' => $floor->floor_name,
+                'campaign' => $floor->description,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a floor.
+     */
+    public function destroyFloor(Floor $floor): JsonResponse
+    {
+        if (!auth()->user()->isItAdmin()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $floor->delete();
+
+        return response()->json(['message' => 'Floor deleted successfully.']);
+    }
+
+    /**
+     * Store a new workstation asset.
+     */
+    public function storeWorkstation(Request $request): JsonResponse
+    {
+        $this->authorize('create', Workstation::class);
+
+        $validated = $request->validate([
+            'name' => 'required|string',
+            'type' => 'required|string',
+            'floor_id' => 'required|exists:floors,id',
+            'hostname' => 'required|string|unique:workstations,hostname',
+            'ip' => 'required|string|unique:workstations,ip_address',
+            'mac' => 'nullable|string',
+            'x' => 'required|integer',
+            'y' => 'required|integer',
+        ]);
+
+        $bay = Bay::firstOrCreate(
+            ['floor_id' => $validated['floor_id'], 'bay_letter' => 'A'],
+            ['client_campaign_name' => 'Default']
+        );
+
+        $workstation = Workstation::create([
+            'bay_id' => $bay->id,
+            'station_id' => $validated['name'],
+            'hostname' => $validated['hostname'],
+            'ip_address' => $validated['ip'],
+            'mac_address' => $validated['mac'],
+            'type' => $validated['type'],
+            'x' => $validated['x'],
+            'y' => $validated['y'],
+            'status' => 'empty',
+        ]);
+
+        return response()->json([
+            'message' => 'Workstation deployed successfully.',
+            'asset' => [
+                'id' => $workstation->id,
+                'name' => $workstation->station_id,
+                'type' => $workstation->type,
+                'floor_id' => $validated['floor_id'],
+                'hostname' => $workstation->hostname,
+                'ip' => $workstation->ip_address,
+                'mac' => $workstation->mac_address,
+                'x' => $workstation->x,
+                'y' => $workstation->y,
+            ],
         ]);
     }
 
@@ -154,6 +291,13 @@ class DashboardController extends Controller
         $this->authorize('update', $workstation);
 
         $validated = $request->validate([
+            'name' => 'nullable|string',
+            'type' => 'nullable|string',
+            'hostname' => 'nullable|string|unique:workstations,hostname,' . $workstation->id,
+            'ip' => 'nullable|string|unique:workstations,ip_address,' . $workstation->id,
+            'mac' => 'nullable|string',
+            'x' => 'nullable|integer',
+            'y' => 'nullable|integer',
             'agent_name' => 'nullable|string|max:255',
             'asset_tag' => 'nullable|string|max:255',
             'headset_serial' => 'nullable|string|max:255',
@@ -161,9 +305,15 @@ class DashboardController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        // Map JS keys to DB columns
+        if (isset($validated['name'])) $validated['station_id'] = $validated['name'];
+        if (isset($validated['ip'])) $validated['ip_address'] = $validated['ip'];
+        if (isset($validated['mac'])) $validated['mac_address'] = $validated['mac'];
+
+        $workstation->update($validated);
+
         // Track changes for audit log
         $changes = $workstation->getChanges();
-        $workstation->update($validated);
 
         // Log the action
         AuditLog::create([
@@ -182,6 +332,18 @@ class DashboardController extends Controller
             'message' => 'Workstation updated successfully.',
             'workstation' => $workstation,
         ]);
+    }
+
+    /**
+     * Delete a workstation.
+     */
+    public function destroyWorkstation(Workstation $workstation): JsonResponse
+    {
+        $this->authorize('delete', $workstation);
+
+        $workstation->delete();
+
+        return response()->json(['message' => 'Workstation deleted successfully.']);
     }
 
     /**

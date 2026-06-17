@@ -226,7 +226,7 @@
                         <rect x="250" y="330" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
                         <rect x="730" y="330" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
 
-                        <template x-for="asset in filteredAssets" :key="asset.id">
+                        <template x-for="asset in getFilteredAssets()" :key="asset.id">
                             <g 
                                 class="movable-station" 
                                 @click="selectAsset(asset)"
@@ -567,37 +567,10 @@
                 toast: { visible: false, title: '', message: '' },
                 validationErrors: { floor: '', asset: '' },
 
-                floors: [
-                    { id: 1, name: 'Floor 1 - Recruitment Hub', campaign: 'Sourcing, SME & Operations Desks' },
-                    { id: 2, name: 'Floor 2 - Support Central', campaign: 'Telecom Customer Operations' },
-                    { id: 3, name: 'Floor 3 - AT&T Solutions', campaign: 'AT&T Billing Suite' },
-                    { id: 4, name: 'Floor 4 - Comcast Core', campaign: 'Comcast Premium CX' }
-                ],
+                floors: @json($floors->map(fn($f) => ['id' => $f->id, 'name' => $f->floor_name, 'campaign' => $f->description])),
 
                 // Simplified CAD Layout assets categorized into Agent, Support, and OM Station Types
-                assets: [
-                    // Floor 1 Station Profiles
-                    { id: 1, name: 'A1', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0101', ip: '10.100.1.10', mac: '00:E0:4C:68:04:A1', x: 230, y: 30 },
-                    { id: 2, name: 'A2', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0102', ip: '10.100.1.11', mac: '00:E0:4C:68:04:A2', x: 280, y: 30 },
-                    { id: 3, name: 'A3', type: 'support', floor_id: 1, hostname: 'VXI-DVO-0103', ip: '10.100.1.12', mac: '00:E0:4C:68:04:A3', x: 330, y: 30 },
-                    { id: 4, name: 'A4', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0104', ip: '10.100.1.13', mac: '00:E0:4C:68:04:A4', x: 230, y: 80 },
-                    { id: 5, name: 'A5', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0105', ip: '10.100.1.14', mac: '00:E0:4C:68:04:A5', x: 280, y: 80 },
-                    { id: 6, name: 'A6', type: 'om', floor_id: 1, hostname: 'VXI-DVO-0106', ip: '10.100.1.15', mac: '00:E0:4C:68:04:A6', x: 330, y: 80 },
-
-                    { id: 7, name: 'B1', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0110', ip: '10.100.1.20', mac: '00:E0:4C:68:04:B1', x: 550, y: 30 },
-                    { id: 8, name: 'B2', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0111', ip: '10.100.1.21', mac: '00:E0:4C:68:04:B2', x: 600, y: 30 },
-                    { id: 9, name: 'B3', type: 'support', floor_id: 1, hostname: 'VXI-DVO-0112', ip: '10.100.1.22', mac: '00:E0:4C:68:04:B3', x: 650, y: 30 },
-                    { id: 10, name: 'B4', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0113', ip: '10.100.1.23', mac: '00:E0:4C:68:04:B4', x: 550, y: 80 },
-                    { id: 11, name: 'B5', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0114', ip: '10.100.1.24', mac: '00:E0:4C:68:04:B5', x: 600, y: 80 },
-                    { id: 12, name: 'B6', type: 'om', floor_id: 1, hostname: 'VXI-DVO-0115', ip: '10.100.1.25', mac: '00:E0:4C:68:04:B6', x: 650, y: 80 },
-
-                    { id: 13, name: 'C1', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0120', ip: '10.100.1.30', mac: '00:E0:4C:68:04:C1', x: 410, y: 330 },
-                    { id: 14, name: 'C2', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0121', ip: '10.100.1.31', mac: '00:E0:4C:68:04:C2', x: 460, y: 330 },
-                    { id: 15, name: 'C3', type: 'support', floor_id: 1, hostname: 'VXI-DVO-0122', ip: '10.100.1.32', mac: '00:E0:4C:68:04:C3', x: 510, y: 330 },
-                    { id: 16, name: 'C4', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0123', ip: '10.100.1.33', mac: '00:E0:4C:68:04:C3', x: 410, y: 380 },
-                    { id: 17, name: 'C5', type: 'agent', floor_id: 1, hostname: 'VXI-DVO-0124', ip: '10.100.1.34', mac: '00:E0:4C:68:04:C4', x: 460, y: 380 },
-                    { id: 18, name: 'C6', type: 'om', floor_id: 1, hostname: 'VXI-DVO-0125', ip: '10.100.1.35', mac: '00:E0:4C:68:04:C5', x: 510, y: 380 }
-                ],
+                assets: @json($allAssets),
 
                 // CRUD instantiation models
                 newFloor: { name: '', campaign: '' },
@@ -617,10 +590,9 @@
                     return current ? current.campaign : 'General Services';
                 },
 
-                // 1. UPDATED: Swapped to a Javascript Property Getter
-                get filteredAssets() {
+                getFilteredAssets() {
                     return this.assets.filter(a => 
-                        a.floor_id === Number(this.selectedFloorId) &&
+                        Number(a.floor_id) === Number(this.selectedFloorId) &&
                         (this.searchQuery === '' || a.hostname.toLowerCase().includes(this.searchQuery.toLowerCase()) || a.name.toLowerCase().includes(this.searchQuery.toLowerCase()))
                     );
                 },
@@ -651,26 +623,46 @@
                     this.createFloorModal = true;
                 },
 
-                saveNewFloor() {
+                async saveNewFloor() {
+                    // Defensive check: ensure this.floors is an array before modifying it
+                    if (!Array.isArray(this.floors)) {
+                        console.warn("this.floors was not an array before saveNewFloor. Reinitializing.");
+                        this.floors = [];
+                    }
                     this.validationErrors.floor = '';
                     
                     if (!this.newFloor.name || !this.newFloor.campaign) {
-                        this.validationErrors.floor = 'Floor Name and Campaign are required.';
                         this.showToast('Error', 'Please complete required fields.');
                         return;
                     }
                     
-                    let nextId = this.floors.length > 0 ? Math.max(...this.floors.map(f => f.id)) + 1 : 1;
-                    
-                    // Spread operator fix for Floors
-                    this.floors = [...this.floors, {
-                        id: nextId,
-                        name: this.newFloor.name,
-                        campaign: this.newFloor.campaign
-                    }];
-                    
-                    this.createFloorModal = false;
-                    this.showToast("Floor Installed", `Floor "${this.newFloor.name}" has been mapped.`);
+                    try {
+                        const response = await fetch('/api/floors', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                name: this.newFloor.name,
+                                campaign: this.newFloor.campaign
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(data.message || 'Failed to save floor');
+                        }
+
+                        this.floors = [...this.floors, data.floor];
+                        this.createFloorModal = false;
+                        this.newFloor = { name: '', campaign: '' };
+                        this.showToast("Floor Installed", `Floor "${data.floor.name}" has been mapped.`);
+                    } catch (error) {
+                        this.showToast('Error', error.message);
+                    }
                 },
 
                 openEditFloorModal(floor) {
@@ -678,26 +670,69 @@
                     this.editFloorModal = true;
                 },
 
-                updateFloor() {
-                    // Map operator fix to update arrays
-                    this.floors = this.floors.map(f => f.id === this.editingFloor.id ? { ...this.editingFloor } : f);
-                    if (this.selectedFloorId === this.editingFloor.id) {
-                        this.selectedFloorName = this.editingFloor.name;
+                async updateFloor() {
+                    try {
+                        const response = await fetch(`/api/floors/${this.editingFloor.id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                name: this.editingFloor.name,
+                                campaign: this.editingFloor.campaign
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok) throw new Error(data.message || 'Failed to update floor');
+
+                        this.floors = this.floors.map(f => f.id === data.floor.id ? data.floor : f);
+                        if (this.selectedFloorId === data.floor.id) {
+                            this.selectedFloorName = data.floor.name;
+                        }
+                        this.editFloorModal = false;
+                        this.showToast("Floor Saved", "Properties saved successfully.");
+                    } catch (error) {
+                        this.showToast('Error', error.message);
                     }
-                    this.editFloorModal = false;
-                    this.showToast("Floor Saved", "Properties saved successfully.");
                 },
 
                 confirmDeleteFloor(floor) {
                     this.confirmBox.message = `Decommission entire layout segment: "${floor.name}"? This action will disconnect all local workstations physically mounted on this segment.`;
+                    // Defensive checks: ensure arrays are valid before filtering
+                    if (!Array.isArray(this.floors)) {
+                        console.warn("this.floors was not an array before confirmDeleteFloor. Reinitializing.");
+                        this.floors = [];
+                    }
                     this.confirmBox.onConfirm = () => {
-                        this.floors = this.floors.filter(f => f.id !== floor.id);
-                        this.assets = this.assets.filter(a => a.floor_id !== floor.id);
-                        if (this.selectedFloorId === floor.id && this.floors.length > 0) {
-                            this.selectFloor(this.floors[0]);
-                        }
-                        this.confirmBox.visible = false;
-                        this.showToast("Layout Purged", "Floor layout removed safely.");
+                        fetch(`/api/floors/${floor.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json'
+                            }
+                        })
+                        .then(response => {
+                            if (!response.ok) return response.json().then(d => { throw new Error(d.message) });
+                            
+                            this.floors = this.floors.filter(f => f.id !== floor.id);
+                            this.assets = this.assets.filter(a => a.floor_id !== floor.id);
+                            
+                            if (this.selectedFloorId === floor.id && this.floors.length > 0) {
+                                this.selectFloor(this.floors[0]);
+                            } else if (this.floors.length === 0) {
+                                this.selectedFloorId = null;
+                                this.selectedFloorName = 'No Floors Available';
+                            }
+                            
+                            this.confirmBox.visible = false;
+                            this.showToast("Layout Purged", "Floor layout removed safely.");
+                        })
+                        .catch(error => {
+                            this.showToast('Error', error.message);
+                        });
                     };
                     this.confirmBox.visible = true;
                 },
@@ -708,34 +743,51 @@
                     this.createAssetModal = true;
                 },
 
-                saveNewAsset() {
+                async saveNewAsset() {
+                    // Defensive check: ensure this.assets is an array before modifying it
+                    if (!Array.isArray(this.assets)) {
+                        console.warn("this.assets was not an array before saveNewAsset. Reinitializing.");
+                        this.assets = [];
+                    }
                     this.validationErrors.asset = '';
                     
                     if (!this.newAsset.name || !this.newAsset.hostname || !this.newAsset.ip) {
-                        this.validationErrors.asset = 'Label, Hostname, and IP address are required.';
                         this.showToast('Error', 'Please fill out necessary details.');
                         return;
                     }
                     
-                    let nextId = this.assets.length > 0 ? Math.max(...this.assets.map(a => a.id)) + 1 : 1;
+                    try {
+                        const response = await fetch('/api/workstations', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                name: this.newAsset.name,
+                                type: this.newAsset.type,
+                                floor_id: this.selectedFloorId,
+                                hostname: this.newAsset.hostname,
+                                ip: this.newAsset.ip,
+                                mac: this.newAsset.mac,
+                                x: this.newAsset.x,
+                                y: this.newAsset.y
+                            })
+                        });
 
-                    // 2. UPDATED: Object creation with forced numbering and [...] Spread Operator
-                    const newStation = {
-                        id: nextId,
-                        name: this.newAsset.name,
-                        type: this.newAsset.type,
-                        floor_id: Number(this.selectedFloorId), // <-- Forced to Integer
-                        hostname: this.newAsset.hostname,
-                        ip: this.newAsset.ip,
-                        mac: this.newAsset.mac || '00:E0:4C:68:01:FF',
-                        x: parseInt(this.newAsset.x) || 350,
-                        y: parseInt(this.newAsset.y) || 150
-                    };
+                        const data = await response.json();
 
-                    this.assets = [...this.assets, newStation];
-                    
-                    this.createAssetModal = false;
-                    this.showToast("Station Deployed", `Workstation ${this.newAsset.hostname} is now active on the map.`);
+                        if (!response.ok) {
+                            throw new Error(data.message || 'Failed to deploy station');
+                        }
+
+                        this.assets = [...this.assets, data.asset];
+                        this.createAssetModal = false;
+                        this.showToast("Station Deployed", `Workstation ${data.asset.hostname} is now active on the map.`);
+                    } catch (error) {
+                        this.showToast('Error', error.message);
+                    }
                 },
 
                 openEditAssetModal(asset) {
@@ -743,23 +795,66 @@
                     this.editAssetModal = true;
                 },
 
-                updateAsset() {
-                    // Map operator array reassignment
-                    this.assets = this.assets.map(a => a.id === this.editingAsset.id ? { ...this.editingAsset } : a);
-                    if (this.selectedAsset && this.selectedAsset.id === this.editingAsset.id) {
-                        this.selectedAsset = { ...this.editingAsset };
+                async updateAsset() {
+                    try {
+                        const response = await fetch(`/api/workstations/${this.editingAsset.id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                name: this.editingAsset.name,
+                                type: this.editingAsset.type,
+                                hostname: this.editingAsset.hostname,
+                                ip: this.editingAsset.ip,
+                                mac: this.editingAsset.mac,
+                                x: this.editingAsset.x,
+                                y: this.editingAsset.y
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok) throw new Error(data.message || 'Failed to update station');
+
+                        const updatedAsset = { ...this.editingAsset };
+                        this.assets = this.assets.map(a => a.id === updatedAsset.id ? updatedAsset : a);
+                        if (this.selectedAsset && this.selectedAsset.id === updatedAsset.id) {
+                            this.selectedAsset = updatedAsset;
+                        }
+                        this.editAssetModal = false;
+                        this.showToast("Configuration Saved", "Properties successfully updated.");
+                    } catch (error) {
+                        this.showToast('Error', error.message);
                     }
-                    this.editAssetModal = false;
-                    this.showToast("Configuration Saved", "Properties successfully updated.");
                 },
 
                 confirmDeleteAsset(asset) {
                     this.confirmBox.message = `De-provision workstation node "${asset.hostname}" from local layout mapping?`;
+                    // Defensive check: ensure this.assets is an array before filtering
+                    if (!Array.isArray(this.assets)) {
+                        this.assets = [];
+                    }
                     this.confirmBox.onConfirm = () => {
-                        this.assets = this.assets.filter(a => a.id !== asset.id);
-                        this.selectedAsset = null;
-                        this.confirmBox.visible = false;
-                        this.showToast("Asset Purged", "Station removed successfully.");
+                        fetch(`/api/workstations/${asset.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json'
+                            }
+                        })
+                        .then(response => {
+                            if (!response.ok) return response.json().then(d => { throw new Error(d.message) });
+                            
+                            this.assets = this.assets.filter(a => a.id !== asset.id);
+                            this.selectedAsset = null;
+                            this.confirmBox.visible = false;
+                            this.showToast("Asset Purged", "Station removed successfully.");
+                        })
+                        .catch(error => {
+                            this.showToast('Error', error.message);
+                        });
                     };
                     this.confirmBox.visible = true;
                 },

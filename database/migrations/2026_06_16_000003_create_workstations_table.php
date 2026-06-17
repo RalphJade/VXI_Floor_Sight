@@ -18,6 +18,9 @@ return new class extends Migration
             $table->string('hostname');
             $table->string('ip_address')->unique();
             $table->string('mac_address')->nullable();
+            $table->string('type')->default('agent');
+            $table->integer('x')->default(0);
+            $table->integer('y')->default(0);
             $table->enum('status', ['active', 'offline', 'empty'])->default('empty');
             $table->string('voice_vlan')->nullable();
             $table->string('data_vlan')->nullable();

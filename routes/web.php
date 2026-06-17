@@ -15,6 +15,11 @@ Route::middleware(['auth', 'verified', 'throttle:60,1'])->group(function () {
     Route::get('/api/search', [DashboardController::class, 'search']);
     Route::get('/api/workstations/{workstation}', [DashboardController::class, 'getWorkstationDetails']);
     Route::put('/api/workstations/{workstation}', [DashboardController::class, 'updateWorkstation']);
+    Route::delete('/api/workstations/{workstation}', [DashboardController::class, 'destroyWorkstation']);
+    Route::post('/api/floors', [DashboardController::class, 'storeFloor']);
+    Route::put('/api/floors/{floor}', [DashboardController::class, 'updateFloor']);
+    Route::delete('/api/floors/{floor}', [DashboardController::class, 'destroyFloor']);
+    Route::post('/api/workstations', [DashboardController::class, 'storeWorkstation']);
     Route::get('/api/workstations-statuses', [DashboardController::class, 'getWorkstationStatuses']);
     Route::post('/api/workstations/{workstation}/remote-session', [DashboardController::class, 'launchRemoteSession']);
 });
