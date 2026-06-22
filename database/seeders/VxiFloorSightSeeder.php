@@ -92,18 +92,21 @@ class VxiFloorSightSeeder extends Seeder
             $createdPermissions['view_workstations']->id,
         ]);
 
-        // Create floors (12-floor building)
+        // Create floors (12-floor building) - hard-aligned schema uses: id, name, campaign, subnet, vlan_a/b/c
         $floors = [];
         for ($i = 1; $i <= 12; $i++) {
             $floors[$i] = Floor::firstOrCreate(
-                ['floor_number' => $i],
+                ['name' => "Floor {$i}"],
                 [
-                    'floor_name' => "Floor {$i}",
-                    'total_seats' => 100,
-                    'description' => "BPO Call Center Floor {$i}",
+                    'campaign' => "Campaign-F{$i}",
+                    'subnet' => null,
+                    'vlan_a' => null,
+                    'vlan_b' => null,
+                    'vlan_c' => null,
                 ]
             );
         }
+
 
         // Create bays and workstations for each floor
         foreach ($floors as $floor) {
@@ -129,21 +132,22 @@ class VxiFloorSightSeeder extends Seeder
                     $ipLastOctet = ($station * 10) + ord($bayLetter);
 
                     Workstation::firstOrCreate(
-                        ['station_id' => "{$bayLetter}{$stationId}"],
+                        ['hostname' => $hostname],
                         [
-                            'bay_id' => $bay->id,
-                            'hostname' => $hostname,
-                            'ip_address' => "192.168.1.{$ipLastOctet}",
-                            'mac_address' => sprintf(
+                            'floor_id' => $floor->id,
+                            'name' => "{$bayLetter}{$stationId}",
+                            'type' => ['agent', 'support', 'om'][array_rand(['agent', 'support', 'om'])],
+                            'ip' => "192.168.1.{$ipLastOctet}",
+                            'mac' => sprintf(
                                 '00:11:22:%02X:%02X:%02X',
-                                $floor->floor_number,
+                                $floor->id,
                                 ord($bayLetter),
                                 $station
                             ),
-                            'status' => ['active', 'offline', 'empty'][array_rand(['active', 'offline', 'empty'])],
-                            'voice_vlan' => "VLAN-{$floor->floor_number}V",
-                            'data_vlan' => "VLAN-{$floor->floor_number}D",
-                            'headset_serial' => 'HS-' . strtoupper(substr(md5($hostname), 0, 8)),
+                            'status' => ['active', 'alert', 'empty'][array_rand(['active', 'alert', 'empty'])],
+                            'agent' => 'Unassigned Station',
+                            'x' => 100,
+                            'y' => 100,
                         ]
                     );
                 }
@@ -157,7 +161,7 @@ class VxiFloorSightSeeder extends Seeder
             [
                 'name' => 'John Admin',
                 'employee_id' => 'EMP001',
-                'password' => Hash::make('VXI@FloorSight2024'),
+                'password' => Hash::make('VXI@FloorSight2026'),
                 'department' => 'IT Operations',
                 'email_verified_at' => now(),
             ]

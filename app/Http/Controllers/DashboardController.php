@@ -22,7 +22,7 @@ class DashboardController extends Controller
         // Determine which floors the user can access
         if ($user->isItAdmin() || $user->isDesktopTechnician()) {
             // IT Admin and Desktop Technicians can see all floors
-            $floors = Floor::with('bays.workstations')->orderBy('floor_number')->get();
+            $floors = Floor::with('workstations')->orderBy('id')->get();
         } else {
             // Operations Managers can only see their assigned bay's floor
             if (!$user->assigned_bay_id) {
@@ -30,7 +30,20 @@ class DashboardController extends Controller
             }
 
             $bay = Bay::with('floor')->find($user->assigned_bay_id);
-            $floors = Floor::where('id', $bay->floor_id)->get();
+
+            // Prevent: Attempt to read property "floor_id" on null
+            if (!$bay) {
+                abort(403, 'Assigned bay not found for your account.');
+            }
+
+            // Prefer hard-aligned bay->floor relation when present, but fall back to floor_id column
+            $floorId = $bay->floor?->id ?? $bay->floor_id ?? null;
+
+            if (!$floorId) {
+                abort(403, 'Assigned bay is missing floor mapping.');
+            }
+
+            $floors = Floor::where('id', $floorId)->get();
         }
 
         // Get the currently selected floor (default to first floor)
@@ -38,7 +51,10 @@ class DashboardController extends Controller
         $currentFloor = $floors->findOrFail($currentFloorId);
 
         // Get bays for the current floor
-        $bays = $currentFloor->bays()->with('workstations')->get();
+        // NOTE: With the hard-aligned schema we rely on direct workstations (floor->workstations).
+        // This controller's legacy $currentFloor->bays() relationship no longer exists.
+        $bays = collect();
+
 
         // Calculate metrics for the current floor
         $metrics = $this->getFloorMetrics($currentFloor);
@@ -54,20 +70,27 @@ class DashboardController extends Controller
             'floors' => $floors,
             'currentFloor' => $currentFloor,
             'bays' => $bays,
+
             'metrics' => $metrics,
             'recentAuditLogs' => $recentAuditLogs,
             'user' => $user,
-            'allAssets' => Workstation::with('bay')->get()->map(fn($w) => [
-                'id' => $w->id,
-                'name' => $w->station_id,
-                'type' => $w->type,
-                'floor_id' => $w->bay->floor_id,
-                'hostname' => $w->hostname,
-                'ip' => $w->ip_address,
-                'mac' => $w->mac_address,
-                'x' => $w->x,
-                'y' => $w->y,
-            ]),
+            'allAssets' => Workstation::query()
+                ->whereIn('floor_id', $floors->pluck('id'))
+                ->orderBy('id')
+                ->get()
+                ->map(fn ($w) => [
+                    'id' => $w->id,
+                    'name' => $w->name,
+                    'type' => $w->type,
+                    'floor_id' => (int) $w->floor_id,
+                    'hostname' => $w->hostname,
+                    'ip' => $w->ip,
+                    'mac' => $w->mac,
+                    'status' => $w->status,
+                    'agent' => $w->agent,
+                    'x' => (int) $w->x,
+                    'y' => (int) $w->y,
+                ]),
         ]);
     }
 
@@ -185,14 +208,14 @@ class DashboardController extends Controller
             'message' => 'Workstation deployed successfully.',
             'asset' => [
                 'id' => $workstation->id,
+                'floor_id' => (int) $bay->floor_id,
                 'name' => $workstation->station_id,
                 'type' => $workstation->type,
-                'floor_id' => $validated['floor_id'],
                 'hostname' => $workstation->hostname,
                 'ip' => $workstation->ip_address,
                 'mac' => $workstation->mac_address,
-                'x' => $workstation->x,
-                'y' => $workstation->y,
+                'x' => (int) $workstation->x,
+                'y' => (int) $workstation->y,
             ],
         ]);
     }
@@ -310,10 +333,26 @@ class DashboardController extends Controller
         if (isset($validated['ip'])) $validated['ip_address'] = $validated['ip'];
         if (isset($validated['mac'])) $validated['mac_address'] = $validated['mac'];
 
+        $before = $workstation->replicate();
+
         $workstation->update($validated);
 
-        // Track changes for audit log
-        $changes = $workstation->getChanges();
+        // Track changes for audit log (safe diff without relying on non-existent getChanges())
+        $changes = [];
+        $beforeAttrs = $before->getAttributes();
+        $afterAttrs = $workstation->getAttributes();
+
+        foreach ($validated as $key => $value) {
+            $beforeValue = $beforeAttrs[$key] ?? null;
+            $afterValue = $afterAttrs[$key] ?? null;
+
+            if ($beforeValue !== $afterValue) {
+                $changes[$key] = [
+                    'from' => $beforeValue,
+                    'to' => $afterValue,
+                ];
+            }
+        }
 
         // Log the action
         AuditLog::create([
@@ -330,7 +369,17 @@ class DashboardController extends Controller
 
         return response()->json([
             'message' => 'Workstation updated successfully.',
-            'workstation' => $workstation,
+            'asset' => [
+                'id' => $workstation->id,
+                'floor_id' => (int) $workstation->bay->floor_id,
+                'name' => $workstation->station_id,
+                'type' => $workstation->type,
+                'hostname' => $workstation->hostname,
+                'ip' => $workstation->ip_address,
+                'mac' => $workstation->mac_address,
+                'x' => (int) $workstation->x,
+                'y' => (int) $workstation->y,
+            ],
         ]);
     }
 

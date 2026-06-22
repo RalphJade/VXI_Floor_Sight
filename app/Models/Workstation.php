@@ -7,52 +7,49 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+
 class Workstation extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'bay_id',
-        'station_id',
-        'hostname',
-        'ip_address',
-        'mac_address',
+        'floor_id',
+        'name',
         'type',
+        'hostname',
+        'ip',
+        'mac',
+        'status',
+        'agent',
         'x',
         'y',
-        'status',
-        'voice_vlan',
-        'data_vlan',
-        'headset_serial',
-        'agent_name',
-        'asset_tag',
-        'last_ping_at',
-        'last_sync_at',
-        'notes',
     ];
 
+
     protected $casts = [
+        'floor_id' => 'integer',
+        'x' => 'integer',
+        'y' => 'integer',
         'last_ping_at' => 'datetime',
         'last_sync_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
+    public function floor(): BelongsTo
+    {
+        return $this->belongsTo(Floor::class);
+    }
+
     /**
      * Get the bay this workstation belongs to.
      */
     public function bay(): BelongsTo
     {
-        return $this->belongsTo(Bay::class);
+        return $this->belongsTo(Bay::class, 'bay_id');
     }
 
-    /**
-     * Get the floor through the bay.
-     */
-    public function floor()
-    {
-        return $this->hasOneThrough(Floor::class, Bay::class, 'id', 'id', 'bay_id', 'floor_id');
-    }
+
 
     /**
      * Get all audit logs for this workstation.
@@ -62,13 +59,12 @@ class Workstation extends Model
         return $this->hasMany(AuditLog::class);
     }
 
-    /**
-     * Get the SVG element ID for this workstation.
-     */
     public function getSvgElementId(): string
     {
-        return sprintf("seat-F%02d-%s%02d", $this->floor->floor_number, $this->bay->bay_letter, $this->station_id);
+        // Legacy helper (used by old Bay-based UI). With hard-aligned schema we no longer rely on Bay.
+        return sprintf('seat-F%s-%s', $this->floor_id, $this->name);
     }
+
 
     /**
      * Check if workstation is connected.
@@ -142,10 +138,11 @@ class Workstation extends Model
 
         return $query->where(function ($q) use ($term) {
             $q->where('hostname', 'like', "%{$term}%")
-                ->orWhere('ip_address', 'like', "%{$term}%")
-                ->orWhere('agent_name', 'like', "%{$term}%")
-                ->orWhere('asset_tag', 'like', "%{$term}%")
-                ->orWhere('mac_address', 'like', "%{$term}%");
+                ->orWhere('ip', 'like', "%{$term}%")
+                ->orWhere('agent', 'like', "%{$term}%")
+                ->orWhere('mac', 'like', "%{$term}%")
+                ->orWhere('name', 'like', "%{$term}%");
         });
     }
+
 }

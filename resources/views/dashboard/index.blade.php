@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-[#050B14] text-slate-100">
 <head>
     <meta charset="utf-8">
@@ -73,6 +73,9 @@
 <body class="antialiased h-full flex flex-col justify-between bg-[#050B14] select-none" x-data="dashboardController()">
 
     <header class="bg-vxi-navy-dark border-b border-vxi-navy/30 px-6 py-4 flex justify-between items-center shrink-0 shadow-lg relative z-20">
+
+        <div class="hidden"></div>
+
         <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-vxi-red text-white font-black text-xl tracking-tighter shadow-lg shadow-vxi-red/20">
                 VXI
@@ -94,23 +97,30 @@
 
     <div class="flex-1 flex overflow-hidden relative">
 
-        <aside class="w-72 border-r border-vxi-navy/30 bg-vxi-navy-dark/60 p-5 flex flex-col justify-between shrink-0 overflow-y-auto z-10">
+        <aside x-cloak x-show="leftSidebarOpen" class="w-72 border-r border-vxi-navy/30 bg-vxi-navy-dark/60 p-5 flex flex-col justify-between shrink-0 overflow-y-auto z-10">
+
             <div class="space-y-6">
+
                 
                 <div class="flex items-center justify-between">
                     <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center">
                         <i data-lucide="layers" class="h-4 w-4 mr-1.5 text-vxi-red"></i>
                         Floor Layouts
                     </h3>
-                    <button @click="openCreateFloorModal()" class="text-[9px] font-black text-vxi-cyan hover:text-cyan-300 flex items-center uppercase tracking-wider">
-                        <i data-lucide="plus" class="h-3 w-3 mr-0.5"></i> Add Floor
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button @click="openCreateFloorModal()" class="text-[9px] font-black text-vxi-cyan hover:text-cyan-300 flex items-center uppercase tracking-wider">
+                            <i data-lucide="plus" class="h-3 w-3 mr-0.5"></i> Add Floor
+                        </button>
+                        <button @click="leftSidebarOpen = false" class="text-slate-500 hover:text-slate-300 p-1" title="Close Floors Panel">
+                            <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="space-y-2">
                     <template x-for="floor in floors" :key="floor.id">
                         <div 
-                            :class="selectedFloorId === floor.id ? 'bg-vxi-red/10 border-vxi-red/40' : 'bg-slate-950/40 border-vxi-navy/20 hover:border-vxi-navy/40'"
+                            :class="parseInt(selectedFloorId, 10) === parseInt(floor.id, 10) ? 'bg-vxi-red/10 border-vxi-red/40' : 'bg-slate-950/40 border-vxi-navy/20 hover:border-vxi-navy/40'"
                             class="group p-3 rounded-xl border flex items-center justify-between transition duration-150 cursor-pointer"
                             @click="selectFloor(floor)"
                         >
@@ -164,7 +174,7 @@
                 <div class="bg-slate-950/70 p-3 rounded-xl border border-vxi-navy/35 text-[9px] text-slate-500 space-y-1 font-mono">
                     <div class="flex justify-between">
                         <span>Map Grid Area:</span>
-                        <span class="text-white font-bold">1000 x 500 px</span>
+                        <span class="text-white font-bold">2000 x 1000 px</span>
                     </div>
                     <div class="flex justify-between">
                         <span>Topology Logic:</span>
@@ -175,8 +185,35 @@
         </aside>
 
         <main class="flex-1 p-6 flex flex-col justify-between overflow-y-auto dashboard-scanlines relative z-0">
+
+            <!-- Sidebars toggle buttons (kept outside main text flow, absolute inside relative main panel) -->
+            <div class="absolute top-6 left-6 right-6 z-20 pointer-events-none">
+
+                <div class="flex justify-between pointer-events-auto">
+                    <!-- Left sidebar toggle (Floor selector) -->
+                    <div class="flex gap-2">
+                        <button @click="leftSidebarOpen = true" x-show="!leftSidebarOpen" class="text-[10px] px-3 py-1.5 bg-vxi-navy-dark/80 hover:bg-vxi-navy-dark text-slate-200 border border-vxi-navy/30 rounded-lg shadow">
+                            <i data-lucide="layers" class="inline-block h-3.5 w-3.5 mr-1"></i> Floors
+                        </button>
+                        <button @click="leftSidebarOpen = false" x-show="leftSidebarOpen" class="text-[10px] px-3 py-1.5 bg-vxi-navy-dark/80 hover:bg-vxi-navy-dark text-slate-200 border border-vxi-navy/30 rounded-lg shadow">
+                            <i data-lucide="chevron-left" class="inline-block h-3.5 w-3.5 mr-1"></i> Close
+                        </button>
+                    </div>
+
+                    <!-- Right sidebar toggle (Asset inspector) -->
+                    <div class="flex gap-2">
+                        <button @click="rightSidebarOpen = false" x-show="rightSidebarOpen" class="text-[10px] px-3 py-1.5 bg-vxi-navy-dark/80 hover:bg-vxi-navy-dark text-slate-200 border border-vxi-navy/30 rounded-lg shadow">
+                            <i data-lucide="chevron-right" class="inline-block h-3.5 w-3.5 mr-1"></i> Close
+                        </button>
+                        <button @click="rightSidebarOpen = true" x-show="!rightSidebarOpen" class="text-[10px] px-3 py-1.5 bg-vxi-navy-dark/80 hover:bg-vxi-navy-dark text-slate-200 border border-vxi-navy/30 rounded-lg shadow">
+                            <i data-lucide="info" class="inline-block h-3.5 w-3.5 mr-1"></i> Inspect
+                        </button>
+                    </div>
+                </div>
+            </div>
             
             <div class="space-y-6">
+
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 class="text-lg font-black text-white flex items-center tracking-wide uppercase">
@@ -207,26 +244,10 @@
                     
                     <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,28,61,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,28,61,0.12)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
 
-                    <svg viewBox="0 0 1000 500" class="w-full h-auto max-w-[1000px] aspect-[2/1] relative z-10">
+                        <svg viewBox="0 0 2000 1000" class="w-full h-auto max-w-[1600px] aspect-[2/1] relative z-10">
                         
-                        <rect x="50" y="220" width="900" height="50" fill="#001c3d" fill-opacity="0.08" stroke="#001c3d" stroke-opacity="0.12" stroke-dasharray="4,4" />
-                        <rect x="480" y="20" width="40" height="460" fill="#001c3d" fill-opacity="0.08" stroke="#001c3d" stroke-opacity="0.12" stroke-dasharray="4,4" />
 
-                        <rect x="20" y="20" width="180" height="130" fill="#001024" fill-opacity="0.75" stroke="#001c3d" stroke-width="1.5" />
-                        <text x="110" y="85" fill="#94a3b8" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" opacity="0.6">TRAINING SUITE</text>
-
-                        <rect x="800" y="20" width="180" height="130" fill="#001024" fill-opacity="0.75" stroke="#001c3d" stroke-width="1.5" />
-                        <text x="890" y="85" fill="#22d3ee" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" opacity="0.6">IDF SERVER ROOM</text>
-
-                        <rect x="320" y="20" width="180" height="130" fill="#001024" fill-opacity="0.75" stroke="#001c3d" stroke-width="1.5" />
-                        <text x="410" y="85" fill="#94a3b8" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" opacity="0.6">HR SOURCING HUB</text>
-
-                        <rect x="250" y="140" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
-                        <rect x="730" y="140" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
-                        <rect x="250" y="330" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
-                        <rect x="730" y="330" width="20" height="20" fill="#1e293b" stroke="#001c3d" />
-
-                        <template x-for="asset in getFilteredAssets()" :key="asset.id">
+                        <template x-for="asset in filteredAssets" :key="'map-' + asset.id + '-' + mapRenderKey">
                             <g 
                                 class="movable-station" 
                                 @click="selectAsset(asset)"
@@ -284,9 +305,14 @@
 
         </main>
 
-        <aside class="w-80 border-l border-vxi-navy/30 bg-[#001024]/60 p-5 flex flex-col justify-between shrink-0 overflow-y-auto z-10">
+        <aside x-cloak x-show="rightSidebarOpen" class="w-80 border-l border-vxi-navy/30 bg-[#001024]/60 p-5 flex flex-col justify-between shrink-0 overflow-y-auto z-10">
+
             
-            <div x-show="!selectedAsset" class="flex flex-col items-center justify-center text-center h-full text-slate-500">
+            <div x-show="!selectedAsset" class="flex flex-col items-center justify-center text-center h-full text-slate-500 relative">
+                <!-- Close Button in placeholder state -->
+                <button @click="rightSidebarOpen = false" class="absolute top-0 right-0 text-slate-500 hover:text-slate-300 p-1" title="Close Panel">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
                 <i data-lucide="info" class="h-10 w-10 text-slate-700 mb-2"></i>
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Asset Inspector</h4>
                 <p class="text-[10px] max-w-[180px] mt-1">Select any workstation on the map canvas blueprint to inspect properties and customize coordinates.</p>
@@ -301,9 +327,14 @@
                               x-text="selectedAsset?.type + ' Station'"></span>
                         <h3 class="text-xl font-extrabold text-white mt-1" x-text="'Workspace ' + selectedAsset?.name"></h3>
                     </div>
-                    <button @click="selectedAsset = null" class="text-slate-500 hover:text-slate-300">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                        <button @click="selectedAsset = null" class="text-slate-500 hover:text-slate-300 p-1" title="Deselect Asset">
+                            <i data-lucide="minus-circle" class="h-4 w-4"></i>
+                        </button>
+                        <button @click="rightSidebarOpen = false; selectedAsset = null" class="text-slate-500 hover:text-vxi-red p-1" title="Close Inspector">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="space-y-2 text-[11px] font-mono bg-slate-950/60 p-4 rounded-xl border border-vxi-navy/25">
@@ -334,7 +365,7 @@
                             <input 
                                 type="number" 
                                 x-model.number="selectedAsset.x" 
-                                @input="clampCoordinates(selectedAsset)"
+                                @input="clampCoordinates(selectedAsset); syncAssetInArray(selectedAsset); refreshFilteredAssets(); persistAssetCoordinates(selectedAsset)"
                                 class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center"
                             >
                         </div>
@@ -343,7 +374,7 @@
                             <input 
                                 type="number" 
                                 x-model.number="selectedAsset.y" 
-                                @input="clampCoordinates(selectedAsset)"
+                                @input="clampCoordinates(selectedAsset); syncAssetInArray(selectedAsset); refreshFilteredAssets(); persistAssetCoordinates(selectedAsset)"
                                 class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center"
                             >
                         </div>
@@ -445,11 +476,11 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis X (20-950px)</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis X (20-1940px)</label>
                     <input type="number" x-model.number="newAsset.x" placeholder="230" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis Y (20-460px)</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Axis Y (20-940px)</label>
                     <input type="number" x-model.number="newAsset.y" placeholder="100" class="block w-full rounded-lg border border-vxi-navy/30 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-vxi-red" style="background-color: #020813 !important;">
                 </div>
                 <div class="col-span-2">
@@ -550,16 +581,23 @@
         });
 
         function dashboardController() {
-            return {
-                selectedFloorId: 1,
+                return {
+                selectedFloorId: null,
                 selectedFloorName: 'Floor 1 - Recruitment Hub',
                 selectedAsset: null,
                 searchQuery: '',
+                filteredAssets: [],
+                mapRenderKey: 0,
                 authRole: 'IT Site Operator',
                 siteHealth: 98,
 
+                // Sidebar modals
+                leftSidebarOpen: false,
+                rightSidebarOpen: false,
+
                 // Modal control gates
                 createFloorModal: false,
+
                 editFloorModal: false,
                 createAssetModal: false,
                 editAssetModal: false,
@@ -567,7 +605,7 @@
                 toast: { visible: false, title: '', message: '' },
                 validationErrors: { floor: '', asset: '' },
 
-                floors: @json($floors->map(fn($f) => ['id' => $f->id, 'name' => $f->floor_name, 'campaign' => $f->description])),
+                floors: @json($floors->map(fn($f) => ['id' => $f->id, 'name' => $f->name, 'campaign' => $f->campaign])),
 
                 // Simplified CAD Layout assets categorized into Agent, Support, and OM Station Types
                 assets: @json($allAssets),
@@ -578,23 +616,78 @@
                 newAsset: { name: '', type: 'agent', floor_id: null, hostname: '', ip: '', mac: '', x: 350, y: 150 },
                 editingAsset: { id: null, name: '', type: 'agent', floor_id: null, hostname: '', ip: '', mac: '', x: 350, y: 150 },
 
+                init() {
+                    // Default: start with sidebars closed to maximize map area
+                    this.leftSidebarOpen = false;
+                    this.rightSidebarOpen = false;
+
+                    // Normalize server-loaded assets so floor_id/x/y are always numeric
+                    this.assets = (Array.isArray(this.assets) ? this.assets : []).map(a => this.normalizeAsset(a));
+
+                    if (!Array.isArray(this.floors) || this.floors.length === 0) {
+                        this.selectedFloorId = null;
+                        this.selectedFloorName = 'No Floors Available';
+                        this.refreshFilteredAssets();
+                        return;
+                    }
+
+                    const first = this.floors[0];
+                    this.selectedFloorId = parseInt(first.id, 10);
+                    this.selectedFloorName = first.name;
+                    this.refreshFilteredAssets();
+
+                    this.$watch('assets', () => this.refreshFilteredAssets());
+                    this.$watch('selectedFloorId', () => this.refreshFilteredAssets());
+                    this.$watch('searchQuery', () => this.refreshFilteredAssets());
+                },
+
+                normalizeAsset(raw) {
+                    const floorId = parseInt(raw.floor_id ?? raw.floorId, 10);
+                    return {
+                        id: parseInt(raw.id, 10),
+                        floor_id: Number.isFinite(floorId) ? floorId : null,
+                        name: String(raw.name ?? ''),
+                        type: raw.type ?? 'agent',
+                        hostname: String(raw.hostname ?? ''),
+                        ip: String(raw.ip ?? ''),
+                        mac: raw.mac ?? '',
+                        status: raw.status ?? 'empty',
+                        agent: raw.agent ?? 'Unassigned Station',
+                        x: parseInt(raw.x, 10) || 100,
+                        y: parseInt(raw.y, 10) || 100,
+                    };
+                },
+
+                refreshFilteredAssets() {
+                    const floorId = parseInt(this.selectedFloorId, 10);
+                    const query = (this.searchQuery ?? '').toLowerCase().trim();
+
+                    this.filteredAssets = (Array.isArray(this.assets) ? this.assets : []).filter(a => {
+                        if (!Number.isFinite(floorId) || parseInt(a.floor_id, 10) !== floorId) {
+                            return false;
+                        }
+                        if (query === '') {
+                            return true;
+                        }
+                        const hostname = (a.hostname ?? '').toLowerCase();
+                        const name = (a.name ?? '').toLowerCase();
+                        return hostname.includes(query) || name.includes(query);
+                    });
+
+                    this.mapRenderKey++;
+                },
+
                 selectFloor(floor) {
-                    this.selectedFloorId = floor.id;
+                    this.selectedFloorId = parseInt(floor.id, 10);
                     this.selectedFloorName = floor.name;
                     this.selectedAsset = null;
+                    this.refreshFilteredAssets();
                     this.showToast("Telemetry Synced", `Active directory mapped to floor ${floor.id}`);
                 },
 
                 getCampaignName() {
                     let current = this.floors.find(f => f.id === this.selectedFloorId);
                     return current ? current.campaign : 'General Services';
-                },
-
-                getFilteredAssets() {
-                    return this.assets.filter(a => 
-                        Number(a.floor_id) === Number(this.selectedFloorId) &&
-                        (this.searchQuery === '' || a.hostname.toLowerCase().includes(this.searchQuery.toLowerCase()) || a.name.toLowerCase().includes(this.searchQuery.toLowerCase()))
-                    );
                 },
 
                 selectAsset(asset) {
@@ -604,17 +697,50 @@
                 // Real-time custom position modifier methods for the absolute map geometry
                 moveSelectedAsset(dx, dy) {
                     if (!this.selectedAsset) return;
-                    this.selectedAsset.x += dx;
-                    this.selectedAsset.y += dy;
+                    this.selectedAsset.x = parseInt(this.selectedAsset.x, 10) + dx;
+                    this.selectedAsset.y = parseInt(this.selectedAsset.y, 10) + dy;
                     this.clampCoordinates(this.selectedAsset);
+                    this.syncAssetInArray(this.selectedAsset);
+                    this.refreshFilteredAssets();
+                    this.persistAssetCoordinates(this.selectedAsset);
+                },
+
+                syncAssetInArray(asset) {
+                    const idx = this.assets.findIndex(a => a.id === asset.id);
+                    if (idx !== -1) {
+                        this.assets[idx] = { ...this.normalizeAsset(asset) };
+                        this.assets = [...this.assets];
+                    }
+                },
+
+                async persistAssetCoordinates(asset) {
+                    if (!asset?.id) return;
+                    try {
+                        await fetch(`/api/workstations/${asset.id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                floor_id: parseInt(asset.floor_id, 10),
+                                x: parseInt(asset.x, 10),
+                                y: parseInt(asset.y, 10),
+                            })
+                        });
+                    } catch (error) {
+                        console.warn('Failed to persist coordinates', error);
+                    }
                 },
 
                 clampCoordinates(asset) {
-                    // Restrict asset coordinate limits so they do not fall out of our 1000x500 blueprint frame boundaries
+                    asset.x = parseInt(asset.x, 10) || 100;
+                    asset.y = parseInt(asset.y, 10) || 100;
                     if (asset.x < 10) asset.x = 10;
-                    if (asset.x > 940) asset.x = 940;
+                    if (asset.x > 1940) asset.x = 1940;
                     if (asset.y < 10) asset.y = 10;
-                    if (asset.y > 450) asset.y = 450;
+                    if (asset.y > 940) asset.y = 940;
                 },
 
                 // --- FLOOR RECORD CONFIGURATIONS ---
@@ -718,7 +844,8 @@
                             if (!response.ok) return response.json().then(d => { throw new Error(d.message) });
                             
                             this.floors = this.floors.filter(f => f.id !== floor.id);
-                            this.assets = this.assets.filter(a => a.floor_id !== floor.id);
+                            this.assets = this.assets.filter(a => parseInt(a.floor_id, 10) !== parseInt(floor.id, 10));
+                            this.refreshFilteredAssets();
                             
                             if (this.selectedFloorId === floor.id && this.floors.length > 0) {
                                 this.selectFloor(this.floors[0]);
@@ -738,24 +865,82 @@
                 },
 
                 // --- WORKSTATION ASSET CONFIGURATIONS ---
+
+                // Finds the first open grid slot on the given floor so a new station
+                // never lands exactly on top of an existing one (which previously made
+                // newly added stations invisible, stacked under the default 350,150 spot).
+                getNextAvailablePosition(floorId) {
+                    const fid = parseInt(floorId, 10);
+                    const existingOnFloor = (Array.isArray(this.assets) ? this.assets : [])
+                        .filter(a => parseInt(a.floor_id, 10) === fid);
+
+                    const startX = 20, startY = 20;
+                    const stepX = 60, stepY = 50;
+                    const maxX = 1940, maxY = 940;
+                    const minDist = 40; // station box is 46x34, so this keeps boxes from overlapping
+
+                    for (let y = startY; y <= maxY; y += stepY) {
+                        for (let x = startX; x <= maxX; x += stepX) {
+                            const collision = existingOnFloor.some(a =>
+                                Math.abs((a.x ?? 0) - x) < minDist && Math.abs((a.y ?? 0) - y) < minDist
+                            );
+                            if (!collision) {
+                                return { x, y };
+                            }
+                        }
+                    }
+
+                    // Grid is fully packed (unlikely) - fall back to a random in-bounds spot
+                    return {
+                        x: startX + Math.floor(Math.random() * (maxX - startX)),
+                        y: startY + Math.floor(Math.random() * (maxY - startY)),
+                    };
+                },
+
                 openCreateAssetModal() {
-                    this.newAsset = { name: '', type: 'agent', floor_id: this.selectedFloorId, hostname: '', ip: '', mac: '', x: 350, y: 150 };
+                    const floorId = parseInt(this.selectedFloorId, 10);
+                    const pos = this.getNextAvailablePosition(floorId);
+                    this.newAsset = {
+                        name: '',
+                        type: 'agent',
+                        floor_id: Number.isFinite(floorId) ? floorId : null,
+                        hostname: '',
+                        ip: '',
+                        mac: '',
+                        x: pos.x,
+                        y: pos.y,
+                    };
                     this.createAssetModal = true;
                 },
 
                 async saveNewAsset() {
-                    // Defensive check: ensure this.assets is an array before modifying it
                     if (!Array.isArray(this.assets)) {
-                        console.warn("this.assets was not an array before saveNewAsset. Reinitializing.");
                         this.assets = [];
                     }
                     this.validationErrors.asset = '';
-                    
+
+                    const floorId = parseInt(this.selectedFloorId, 10);
+                    if (!Number.isFinite(floorId)) {
+                        this.showToast('Error', 'Select a floor before deploying a station.');
+                        return;
+                    }
+
                     if (!this.newAsset.name || !this.newAsset.hostname || !this.newAsset.ip) {
                         this.showToast('Error', 'Please fill out necessary details.');
                         return;
                     }
-                    
+
+                    const payload = {
+                        name: this.newAsset.name,
+                        type: this.newAsset.type,
+                        floor_id: floorId,
+                        hostname: this.newAsset.hostname,
+                        ip: this.newAsset.ip,
+                        mac: this.newAsset.mac || null,
+                        x: parseInt(this.newAsset.x, 10) || 100,
+                        y: parseInt(this.newAsset.y, 10) || 100,
+                    };
+
                     try {
                         const response = await fetch('/api/workstations', {
                             method: 'POST',
@@ -764,38 +949,41 @@
                                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                                 'Accept': 'application/json'
                             },
-                            body: JSON.stringify({
-                                name: this.newAsset.name,
-                                type: this.newAsset.type,
-                                floor_id: this.selectedFloorId,
-                                hostname: this.newAsset.hostname,
-                                ip: this.newAsset.ip,
-                                mac: this.newAsset.mac,
-                                x: this.newAsset.x,
-                                y: this.newAsset.y
-                            })
+                            body: JSON.stringify(payload)
                         });
 
                         const data = await response.json();
 
                         if (!response.ok) {
-                            throw new Error(data.message || 'Failed to deploy station');
+                            throw new Error(data.message || (data.errors ? Object.values(data.errors).flat().join(' ') : 'Failed to deploy station'));
                         }
 
-                        this.assets = [...this.assets, data.asset];
+                        const newStation = this.normalizeAsset({
+                            ...data.asset,
+                            floor_id: floorId,
+                            x: payload.x,
+                            y: payload.y,
+                        });
+
+                        this.assets = [...this.assets, newStation];
+                        this.selectedAsset = newStation;
+                        this.refreshFilteredAssets();
                         this.createAssetModal = false;
-                        this.showToast("Station Deployed", `Workstation ${data.asset.hostname} is now active on the map.`);
+                        const nextPos = this.getNextAvailablePosition(floorId);
+                        this.newAsset = { name: '', type: 'agent', floor_id: floorId, hostname: '', ip: '', mac: '', x: nextPos.x, y: nextPos.y };
+                        this.showToast("Station Deployed", `Workstation ${newStation.hostname} is now active on the map.`);
                     } catch (error) {
                         this.showToast('Error', error.message);
                     }
                 },
 
                 openEditAssetModal(asset) {
-                    this.editingAsset = { ...asset };
+                    this.editingAsset = { ...this.normalizeAsset(asset) };
                     this.editAssetModal = true;
                 },
 
                 async updateAsset() {
+                    const floorId = parseInt(this.editingAsset.floor_id ?? this.selectedFloorId, 10);
                     try {
                         const response = await fetch(`/api/workstations/${this.editingAsset.id}`, {
                             method: 'PUT',
@@ -809,20 +997,25 @@
                                 type: this.editingAsset.type,
                                 hostname: this.editingAsset.hostname,
                                 ip: this.editingAsset.ip,
-                                mac: this.editingAsset.mac,
-                                x: this.editingAsset.x,
-                                y: this.editingAsset.y
+                                mac: this.editingAsset.mac || null,
+                                x: parseInt(this.editingAsset.x, 10) || 100,
+                                y: parseInt(this.editingAsset.y, 10) || 100,
+                                floor_id: floorId,
                             })
                         });
 
                         const data = await response.json();
                         if (!response.ok) throw new Error(data.message || 'Failed to update station');
 
-                        const updatedAsset = { ...this.editingAsset };
+                        const updatedAsset = this.normalizeAsset({
+                            ...data.asset,
+                            floor_id: floorId,
+                        });
                         this.assets = this.assets.map(a => a.id === updatedAsset.id ? updatedAsset : a);
                         if (this.selectedAsset && this.selectedAsset.id === updatedAsset.id) {
                             this.selectedAsset = updatedAsset;
                         }
+                        this.refreshFilteredAssets();
                         this.editAssetModal = false;
                         this.showToast("Configuration Saved", "Properties successfully updated.");
                     } catch (error) {
@@ -849,6 +1042,7 @@
                             
                             this.assets = this.assets.filter(a => a.id !== asset.id);
                             this.selectedAsset = null;
+                            this.refreshFilteredAssets();
                             this.confirmBox.visible = false;
                             this.showToast("Asset Purged", "Station removed successfully.");
                         })

@@ -6,38 +6,31 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+
 class Floor extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'floor_number',
-        'floor_name',
-        'total_seats',
-        'description',
-        'svg_map_path',
+        'name',
+        'campaign',
+        'subnet',
+        'vlan_a',
+        'vlan_b',
+        'vlan_c',
     ];
+
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
-    /**
-     * Get all bays on this floor.
-     */
-    public function bays(): HasMany
+    public function workstations(): HasMany
     {
-        return $this->hasMany(Bay::class);
+        return $this->hasMany(Workstation::class);
     }
 
-    /**
-     * Get all workstations on this floor through bays.
-     */
-    public function workstations()
-    {
-        return $this->hasManyThrough(Workstation::class, Bay::class);
-    }
 
     /**
      * Get count of active workstations on floor.
