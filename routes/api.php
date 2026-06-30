@@ -1,8 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\FloorSightApiController;
 
-// All API routes have been moved to routes/web.php under the 'api' prefix 
-// to run under the 'web' middleware group so that session auth works.
-
-
+// API routes protected by Sanctum
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/workstations', [FloorSightApiController::class, 'listWorkstations']);
+    Route::patch('/workstations/{id}', [FloorSightApiController::class, 'updateWorkstation']);
+});

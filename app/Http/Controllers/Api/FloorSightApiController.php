@@ -15,32 +15,16 @@ class FloorSightApiController
         $floors = Floor::with('workstations')
             ->orderBy('id')
             ->get()
-            ->map(fn (Floor $floor) => [
-                'id' => $floor->id,
-                'name' => $floor->name,
-                'campaign' => $floor->campaign,
-                'subnet' => $floor->subnet,
-                'vlan_a' => $floor->vlan_a,
-                'vlan_b' => $floor->vlan_b,
-                'vlan_c' => $floor->vlan_c,
-                'workstations' => $floor->workstations
-                    ->orderBy('id')
-                    ->map(fn (Workstation $w) => [
-                        'id' => $w->id,
-                        'floor_id' => $w->floor_id,
-                        'name' => $w->name,
-                        'type' => $w->type,
-                        'hostname' => $w->hostname,
-                        'ip' => $w->ip,
-                        'mac' => $w->mac,
-                        'status' => $w->status,
-                        'agent' => $w->agent,
-                        'x' => (int) $w->x,
-                        'y' => (int) $w->y,
-                    ]),
-            ]);
+            ->map(function (Floor $floor) {
+                return [
+                    'id' => $floor->id,
+                    'name' => $floor->name,
+                    'campaign' => $floor->campaign,
+                    'workstations' => $floor->workstations->map(fn (Workstation $w) => $this->mapWorkstation($w))->values(),
+                ];
+            });
 
-        return response()->json(['floors' => $floors]);
+        return response()->json($floors);
     }
 
     public function storeFloor(Request $request): JsonResponse
@@ -178,6 +162,19 @@ class FloorSightApiController
 
         return response()->json(['message' => 'Workstation deleted successfully.']);
     }
+
+    /**
+     * List all workstations (for dashboard rendering).
+     */
+    public function listWorkstations(): JsonResponse
+    {
+        $workstations = Workstation::orderBy('id')
+            ->get()
+            ->map(fn (Workstation $w) => $this->mapWorkstation($w));
+
+        return response()->json($workstations);
+    }
+
 
     private function mapWorkstation(Workstation $w): array
     {

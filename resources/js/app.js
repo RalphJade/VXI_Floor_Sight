@@ -1,7 +1,8 @@
 
 
-import Alpine from 'alpinejs';
+import { createApp } from 'vue';
+import App from '@/components/App.vue';
+import router from '@/router/index.js';
+import VueKonva from 'vue-konva';
 
-window.Alpine = Alpine;
-
-Alpine.start();
+createApp(App).use(router).use(VueKonva).mount('#app');

@@ -27,9 +27,9 @@
 
             <!-- Page Content -->
             <main class="flex-1">
-                {{ $slot }}
+                @yield('content')
             </main>
-        </div>
+
 
         <!-- Built Assets - Production JS -->
         @if (file_exists(public_path('build/manifest.json')))

@@ -108,52 +108,6 @@ class VxiFloorSightSeeder extends Seeder
         }
 
 
-        // Create bays and workstations for each floor
-        foreach ($floors as $floor) {
-            // Create 4 bays per floor (A, B, C, D)
-            $bayLetters = ['A', 'B', 'C', 'D'];
-
-            foreach ($bayLetters as $bayLetter) {
-                $bay = Bay::firstOrCreate(
-                    [
-                        'floor_id' => $floor->id,
-                        'bay_letter' => $bayLetter,
-                    ],
-                    [
-                        'client_campaign_name' => "Campaign-{$floor->floor_number}{$bayLetter}",
-                        'seat_count' => 25,
-                    ]
-                );
-
-                // Create 25 workstations per bay
-                for ($station = 1; $station <= 25; $station++) {
-                    $stationId = str_pad($station, 2, '0', STR_PAD_LEFT);
-                    $hostname = "WS-F{$floor->floor_number}-{$bayLetter}{$stationId}";
-                    $ipLastOctet = ($station * 10) + ord($bayLetter);
-
-                    Workstation::firstOrCreate(
-                        ['hostname' => $hostname],
-                        [
-                            'floor_id' => $floor->id,
-                            'name' => "{$bayLetter}{$stationId}",
-                            'type' => ['agent', 'support', 'om'][array_rand(['agent', 'support', 'om'])],
-                            'ip' => "192.168.1.{$ipLastOctet}",
-                            'mac' => sprintf(
-                                '00:11:22:%02X:%02X:%02X',
-                                $floor->id,
-                                ord($bayLetter),
-                                $station
-                            ),
-                            'status' => ['active', 'alert', 'empty'][array_rand(['active', 'alert', 'empty'])],
-                            'agent' => 'Unassigned Station',
-                            'x' => 100,
-                            'y' => 100,
-                        ]
-                    );
-                }
-            }
-        }
-
         // Create sample users
         // IT Admin
         $itAdmin = User::firstOrCreate(
