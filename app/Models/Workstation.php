@@ -23,6 +23,10 @@ class Workstation extends Model
         'agent',
         'x',
         'y',
+        'model',        
+        'ram',            
+        'storage',        
+        'serial_number',
     ];
 
 

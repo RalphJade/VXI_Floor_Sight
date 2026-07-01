@@ -135,6 +135,10 @@ class FloorSightApiController
             'agent' => 'nullable|string|max:255',
             'x' => 'sometimes|integer',
             'y' => 'sometimes|integer',
+            'model' => 'nullable|string|max:255',
+            'ram' => 'nullable|string|max:64',
+            'storage' => 'nullable|string|max:64',
+            'serial_number' => 'nullable|string|max:255',
         ]);
 
         $workstation->update([
@@ -148,6 +152,10 @@ class FloorSightApiController
             'agent' => $validated['agent'] ?? $workstation->agent,
             'x' => array_key_exists('x', $validated) ? (int) $validated['x'] : $workstation->x,
             'y' => array_key_exists('y', $validated) ? (int) $validated['y'] : $workstation->y,
+            'model' => $validated['model'] ?? $workstation->model,
+            'ram' => $validated['ram'] ?? $workstation->ram,
+            'storage' => $validated['storage'] ?? $workstation->storage,
+            'serial_number' => $validated['serial_number'] ?? $workstation->serial_number,
         ]);
 
         return response()->json([
@@ -190,6 +198,10 @@ class FloorSightApiController
             'agent' => $w->agent,
             'x' => (int) $w->x,
             'y' => (int) $w->y,
+            'model' => $w->model,
+            'ram' => $w->ram,
+            'storage' => $w->storage,
+            'serial_number' => $w->serial_number,
         ];
     }
 }

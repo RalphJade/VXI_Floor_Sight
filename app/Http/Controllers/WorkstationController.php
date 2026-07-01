@@ -14,7 +14,7 @@ class WorkstationController extends Controller
     public function index(?int $floorId = null): JsonResponse
     {
         $query = Workstation::query()->select([
-            'id', 'floor_id', 'name', 'type', 'hostname', 'ip', 'mac', 'status', 'x', 'y'
+            'id', 'floor_id', 'name', 'type', 'hostname', 'ip', 'mac', 'status', 'x', 'y', 'model', 'ram', 'storage', 'serial_number'
         ]);
         if ($floorId !== null) {
             $query->where('floor_id', $floorId);
@@ -30,7 +30,7 @@ class WorkstationController extends Controller
     {
         $ws = Workstation::findOrFail($id);
         // Only allow specific fields to be mass‑assigned for safety.
-        $data = $request->only(['x', 'y', 'name', 'type', 'hostname', 'ip', 'mac', 'status']);
+        $data = $request->only(['x', 'y', 'name', 'type', 'hostname', 'ip', 'mac', 'serial_number', 'model', 'ram', 'storage']);
         $ws->update($data);
         return response()->json($ws);
     }

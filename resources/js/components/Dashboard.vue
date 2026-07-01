@@ -8,12 +8,21 @@
         </div>
         <div>
           <h1 class="text-sm font-extrabold text-white tracking-wider flex items-center">
-            FloorSight Terminal Map <span class="ml-2 text-[9px] px-2 py-0.5 rounded-full bg-vxi-red/15 text-vxi-red border border-vxi-red/30 uppercase tracking-widest font-black text-center">Structure Editor</span>
+            FloorSight <span class="ml-2 text-[9px] px-2 py-0.5 rounded-full bg-vxi-red/15 text-vxi-red border border-vxi-red/30 uppercase tracking-widest font-black text-center">Structure Editor</span>
           </h1>
-          <p class="text-[10px] text-slate-400 font-mono">DAVAO CENTRALE HUBS • LOCAL GEOMETRICS</p>
+          <p class="text-[10px] text-slate-400 font-mono">DAVAO CENTRALE</p>
         </div>
       </div>
       <div class="flex items-center gap-4">
+        <button 
+          @click="isLayoutLocked = !isLayoutLocked" 
+          class="px-3 py-1.5 text-[10px] font-mono font-black uppercase rounded border transition duration-150 flex items-center gap-1.5 select-none"
+          :class="isLayoutLocked ? 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200' : 'bg-vxi-red/20 border-vxi-red/40 text-vxi-red hover:bg-vxi-red/30 shadow-lg shadow-vxi-red/10'"
+        >
+          <span v-if="isLayoutLocked">🔒 Layout Locked</span>
+          <span v-else class="flex items-center gap-1">🔓 Editing Layout <span class="h-1.5 w-1.5 rounded-full bg-vxi-red animate-ping"></span></span>
+        </button>
+
         <span class="text-xs text-slate-400 font-mono">WORKSPACE: <span class="text-vxi-cyan font-bold">{{ selectedFloorName }}</span></span>
         <div class="h-6 w-px bg-vxi-navy/30"></div>
         <a href="/" class="text-xs font-bold text-slate-400 hover:text-white transition">Back to Main HUD</a>
@@ -89,11 +98,22 @@
 
       <!-- Main Canvas Map -->
       <main class="flex-1 p-6 flex flex-col justify-between overflow-y-auto dashboard-scanlines relative z-0" ref="stageContainer">
-        <v-stage :config="stageConfig" class="w-full h-auto relative z-10" @mousedown="checkDeselect">
+        <v-stage 
+          :config="{...stageConfig, draggable: true}" 
+          class="w-full h-auto relative z-10 cursor-move" 
+          @mousedown="checkDeselect"
+          @wheel="handleWheel"
+          >
           <v-layer>
             <template v-for="ws in filteredWorkstations" :key="ws.id">
               <v-group 
-                :config="{ x: ws.x, y: ws.y, draggable: true, id: ws.id.toString() }"
+                :config="{ 
+                  x: ws.x, 
+                  y: ws.y, 
+                  id: ws.id.toString(),
+                  draggable: !isLayoutLocked, 
+                  dragDistance: 5 
+                }"
                 @mousedown="selectAsset(ws)"
                 @dragend="onDragEnd(ws, $event)"
               >
@@ -143,34 +163,39 @@
             </div>
           </div>
           <div class="space-y-2 text-[11px] font-mono bg-slate-950/60 p-4 rounded-xl border border-vxi-navy/25">
-            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">Hostname:</span><span class="text-white font-bold">{{ selectedAsset.hostname }}</span></div>
-            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">IP Segment:</span><span class="text-vxi-cyan">{{ selectedAsset.ip }}</span></div>
+            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">Hostname:</span><span class="text-white font-bold">{{ selectedAsset.name }}</span></div>
+            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">IP Addr:</span><span class="text-vxi-cyan">{{ selectedAsset.ip }}</span></div>
             <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">MAC Addr:</span><span class="text-slate-400 text-[10px]">{{ selectedAsset.mac }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Seat Category:</span><span class="text-white font-bold capitalize">{{ selectedAsset.type }}</span></div>
+            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">Seat Category:</span><span class="text-white font-bold capitalize">{{ selectedAsset.type }}</span></div>
+            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">Model:</span><span class="text-slate-200 font-bold">{{ selectedAsset.model || 'N/A' }}</span></div>
+            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">RAM:</span><span class="text-slate-200 font-bold">{{ selectedAsset.ram || 'N/A' }}</span></div>
+            <div class="flex justify-between border-b border-vxi-navy/15 pb-1.5"><span class="text-slate-500">Storage:</span><span class="text-slate-200 font-bold">{{ selectedAsset.storage || 'N/A' }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">S/N:</span><span class="text-vxi-cyan text-[10px] font-bold">{{ selectedAsset.serial_number || 'N/A' }}</span></div>
           </div>
           <div class="space-y-4">
-            <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider">Coordinates (Drag Simulation)</h4>
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider">
+              Coordinates {{ isLayoutLocked ? '(Locked)' : '(Drag Simulation)' }}
+            </h4>
             <div class="grid grid-cols-2 gap-3 text-[11px] font-mono">
               <div>
                 <span class="text-slate-500">Axis X (horizontal):</span>
-                <input type="number" v-model.number="selectedAsset.x" @input="persistCoordinates(selectedAsset)" class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center" />
+                <input 
+                  type="number" 
+                  v-model.number="selectedAsset.x" 
+                  @input="persistCoordinates(selectedAsset)" 
+                  :disabled="isLayoutLocked"
+                  class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center" 
+                />
               </div>
               <div>
                 <span class="text-slate-500">Axis Y (vertical):</span>
-                <input type="number" v-model.number="selectedAsset.y" @input="persistCoordinates(selectedAsset)" class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center" />
-              </div>
-            </div>
-            <div class="bg-slate-950/40 p-3 rounded-xl border border-vxi-navy/20 space-y-2">
-              <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider block text-center">Numpad Fine‑Tuning</span>
-              <div class="flex justify-center">
-                <button @click="moveSelectedAsset(0, -10)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded"><i data-lucide="chevron-up" class="h-4 w-4"></i></button>
-              </div>
-              <div class="flex justify-center gap-4">
-                <button @click="moveSelectedAsset(-10, 0)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded"><i data-lucide="chevron-left" class="h-4 w-4"></i></button>
-                <button @click="moveSelectedAsset(10, 0)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded"><i data-lucide="chevron-right" class="h-4 w-4"></i></button>
-              </div>
-              <div class="flex justify-center">
-                <button @click="moveSelectedAsset(0, 10)" class="p-1.5 bg-vxi-navy/30 hover:bg-vxi-navy/70 border border-vxi-navy/40 text-white rounded"><i data-lucide="chevron-down" class="h-4 w-4"></i></button>
+                <input 
+                  type="number" 
+                  v-model.number="selectedAsset.y" 
+                  @input="persistCoordinates(selectedAsset)"
+                  :disabled="isLayoutLocked" 
+                  class="w-full mt-1 bg-slate-950 border border-vxi-navy/35 text-white px-2 py-1.5 rounded focus:outline-none focus:border-vxi-red text-center" 
+                />
               </div>
             </div>
           </div>
@@ -203,11 +228,63 @@
         </div>
       </div>
     </div>
+    <!-- Edit Properties Station Modal -->
+    <div v-if="showEditStationModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-vxi-navy-dark border border-vxi-navy/40 p-6 rounded-2xl shadow-2xl w-full max-w-md">
+        <h2 class="text-white font-black text-lg mb-4 flex items-center gap-2">
+          <span class="h-2 w-2 rounded-full bg-vxi-cyan"></span> Update Station Profile
+        </h2>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-400 mb-1">Station Name</label>
+            <input v-model="editStation.name" type="text" class="w-full bg-slate-900 border border-vxi-navy/50 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-vxi-cyan">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-400 mb-1">Seat Category</label>
+            <select v-model="editStation.type" class="w-full bg-slate-900 border border-vxi-navy/50 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-vxi-cyan">
+              <option value="agent">Agent Station</option>
+              <option value="support">Support Station</option>
+              <option value="om">OM Station</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1">Hardware Model</label>
+            <select v-model="editStation.model" class="w-full bg-slate-900 border border-vxi-navy/50 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-vxi-cyan">
+              <option value="">-- Select Model --</option>
+              <option v-for="m in hardwareModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1">RAM Capacity</label>
+            <select v-model="editStation.ram" class="w-full bg-slate-900 border border-vxi-navy/50 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-vxi-cyan">
+              <option value="">-- Select RAM --</option>
+              <option v-for="r in ramOptions" :key="r" :value="r">{{ r }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1">Storage Size</label>
+            <input v-model="editStation.storage" type="text" class="w-full bg-slate-900 border border-vxi-navy/50 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-vxi-cyan" placeholder="e.g. 256GB SSD">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1">Serial Number</label>
+            <input v-model="editStation.serial_number" type="text" class="w-full bg-slate-900 border border-vxi-navy/50 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-vxi-cyan font-mono" placeholder="S/N ID Tag">
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button @click="showEditStationModal = false" class="px-4 py-2 text-sm font-bold text-slate-400 hover:text-white">Cancel</button>
+          <button @click="submitEditStation" class="px-4 py-2 text-sm font-bold bg-vxi-cyan hover:bg-cyan-400 text-vxi-navy-dark rounded-lg shadow-lg">Save Parameters</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import axios from 'axios';
+
+axios.defaults.withCredentials = true;
 export default {
   name: 'Dashboard',
   data() {
@@ -216,6 +293,7 @@ export default {
       floors: [],
       selectedFloorId: null,
       selectedFloorName: '',
+      isLayoutLocked: true,
       leftSidebarOpen: true,
       rightSidebarOpen: false,
       workstations: [],
@@ -232,10 +310,33 @@ export default {
 
       // Modal State
       showAddStationModal: false,
+      showEditStationModal: false,
       newStation: {
         name: '',
         type: 'agent'
       },
+
+      // 💡 Tracks pending changes safely before submission
+      editStation: {
+        id: null,
+        name: '',
+        type: 'agent',
+        model: '',
+        ram: '',
+        storage: '',
+        serial_number: ''
+      },
+
+      // 💡 Dropdown selection choices matching your database strings
+      hardwareModels: [
+        'OptiPlex 3050',
+        'OptiPlex 3080',
+        'HP ProDesk'
+      ],
+      ramOptions: [
+        '8GB',
+        '16GB'
+      ],
 
       // Search & UI helpers
       searchQuery: '',
@@ -253,7 +354,16 @@ export default {
         axios.get('/api/workstations')
       ]);
       this.floors = floorsRes.data;
-      this.workstations = stationsRes.data;
+      
+      // ✅ FIX: Map the data right here where it actually loads!
+      this.workstations = stationsRes.data.map(ws => ({
+        ...ws,
+        model: ws.model || '',
+        ram: ws.ram || '',
+        storage: ws.storage || '',
+        serial_number: ws.serial_number || ''
+      }));
+
       if (this.floors.length) {
         this.selectFloor(this.floors[0]);
       }
@@ -266,8 +376,8 @@ export default {
       for (let entry of entries) {
         const containerWidth = entry.contentRect.width;
         // Base logical dimensions for the floor plan
-        const logicalWidth = 2000;
-        const logicalHeight = 1000;
+        const logicalWidth = 1000;
+        const logicalHeight = 500;
         
         // Calculate scale to fit width
         const scale = Math.min(containerWidth, 1600) / logicalWidth;
@@ -302,11 +412,26 @@ export default {
       }
     },
     async fetchWorkstations() {
+      if (!this.selectedFloorId) return;
       try {
-        const response = await axios.get('/api/workstations');
-        this.workstations = response.data;
+        const response = await axios.get(`/api/workstations/${this.selectedFloorId}`);
+        this.workstations = response.data.map(ws => ({
+          id: ws.id,
+          name: ws.name,
+          type: ws.type,
+          x: parseInt(ws.x),
+          y: parseInt(ws.y),
+          ip: ws.ip,
+          mac: ws.mac,
+          status: ws.status,
+          // 💡 ADD THESE MAPPINGS SO VUE KEEPS THE DB FIELDS ON REFRESH:
+          model: ws.model || '',
+          ram: ws.ram || '',
+          storage: ws.storage || '',
+          serial_number: ws.serial_number || ''
+        }));
       } catch (e) {
-        console.error('Failed to load workstations', e);
+        console.error('Failed to fetch workstations', e);
       }
     },
     selectFloor(floor) {
@@ -320,8 +445,11 @@ export default {
       // In a real app we might fetch from a filtered endpoint, 
       // here we rely on the component list binding or manual filtering
     },
-    selectAsset(ws) {
-      this.selectedAsset = ws;
+    selectAsset(asset) {
+      if (!asset) return;
+      // Find the fully loaded item from our data array to get all properties
+      const fullAsset = this.workstations.find(w => w.id === asset.id);
+      this.selectedAsset = fullAsset || asset;
       this.rightSidebarOpen = true;
     },
     checkDeselect(e) {
@@ -341,8 +469,10 @@ export default {
     async persistCoordinates(ws) {
       try {
         await axios.patch(`/api/workstations/${ws.id}`, { x: ws.x, y: ws.y });
+      console.log(`Saved successfully to X:${ws.x}, Y:${ws.y}`);
       } catch (e) {
         console.error('Failed to persist coordinates', e);
+        alert('Failed to save to database! Check console.');
       }
     },
     moveSelectedAsset(dx, dy) {
@@ -351,7 +481,34 @@ export default {
       this.selectedAsset.y += dy;
       this.persistCoordinates(this.selectedAsset);
     },
-    
+    handleWheel(e) {
+      // Prevent default browser scrolling
+      e.evt.preventDefault();
+
+      const scaleBy = 1.1; // How fast it zooms
+      const stage = e.target.getStage();
+      const oldScale = stage.scaleX();
+
+      // Find the current mouse position relative to the stage
+      const pointer = stage.getPointerPosition();
+      const mousePointTo = {
+        x: (pointer.x - stage.x()) / oldScale,
+        y: (pointer.y - stage.y()) / oldScale,
+      };
+
+      // Calculate new scale (scroll up = zoom in, scroll down = zoom out)
+      const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+
+      // Limit zooming in/out too far
+      if (newScale < 0.2 || newScale > 5) return;
+
+      // Apply new scale and calculate new position so it zooms towards the cursor
+      this.stageConfig.scaleX = newScale;
+      this.stageConfig.scaleY = newScale;
+      
+      this.stageConfig.x = pointer.x - mousePointTo.x * newScale;
+      this.stageConfig.y = pointer.y - mousePointTo.y * newScale;
+    },
     // Modal & Action methods
     openCreateAssetModal() {
       if (!this.selectedFloorId) {
@@ -399,7 +556,56 @@ export default {
     openCreateFloorModal() {},
     openEditFloorModal(floor) {},
     confirmDeleteFloor(floor) {},
-    openEditAssetModal(asset) {},
+    openEditAssetModal(asset) {
+      if (!asset) return;
+      
+      // Clone parameters to prevent un-saved live modifications on map canvas
+      this.editStation = {
+        id: asset.id,
+        name: asset.name,
+        type: asset.type,
+        model: asset.model || '',
+        ram: asset.ram || '',
+        storage: asset.storage || '',
+        serial_number: asset.serial_number || ''
+      };
+      
+      this.showEditStationModal = true;
+    },
+
+    async submitEditStation() {
+      if (!this.editStation.name) return;
+
+      try {
+        const payload = {
+          name: this.editStation.name,
+          type: this.editStation.type,
+          model: this.editStation.model || null,
+          ram: this.editStation.ram || null,
+          storage: this.editStation.storage || null,
+          serial_number: this.editStation.serial_number || null,
+        };
+
+        // Network update dispatch via API endpoints mapping using PATCH
+        const response = await axios.patch(`/api/workstations/${this.editStation.id}`, payload);
+        
+        // Find inside reactive workstations storage index array and update values
+        const idx = this.workstations.findIndex(w => w.id === this.editStation.id);
+        if (idx !== -1) {
+          // Reactively replace properties to make map layout canvas update immediately
+          Object.assign(this.workstations[idx], payload);
+        }
+        
+        // Update currently inspected dataset readout fields
+        this.selectedAsset = { ...this.selectedAsset, ...payload };
+        this.showEditStationModal = false;
+        
+        console.log(`Workstation asset records updated successfully for ID: ${this.editStation.id}`);
+      } catch (e) {
+        console.error('Failed to save hardware parameters', e);
+        alert(e.response?.data?.message || 'Failed to update database profile parameters.');
+      }
+    },
   },
 };
 </script>
